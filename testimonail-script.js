@@ -68,11 +68,217 @@ html.remodal-is-locked{overflow:hidden;touch-action:none}.remodal,[data-remodal-
                            },
                          });
                        });
+                       $('#testimonial_form').submit(function(e){
+                         e.preventDefault();
+                         var link_image = '';
+                         var shop = window.Shopify.shop;
+
+                         var data_formTesti = {};
+                         var data_social = [];
+                         if((config_form.form_elements).includes('featured_image')){
+                           var file = document.querySelector("[type=file]").files;
+                           const formData = new FormData();
+                           formData.append('file',file[0]);
+                           formData.append("upload_preset", "image_testimonial");
+                           $.ajax({
+                             async:false,
+                             data: formData,
+                             method: "POST",
+                             url: 'https://api.cloudinary.com/v1_1/simesy-test/image/upload',
+                             processData: false,
+                             contentType: false,
+                             success:function(data){
+                               link_image = data.secure_url;
+
+                             }
+                           })
+                         }
+                         if((config_form.form_elements).includes('social_profile')){
+                           $('.tpro-social-profile-item').each(function(i,v){
+                             var social_name = $(this).find('select[name="tpro_social_profiles['+i+'][social_name]"]').val();
+                             var social_url = $(this).find('input[name="tpro_social_profiles['+i+'][social_url]"]').val() ;
+                             if(social_name != ''){
+                               data_social.push({"social_name":social_name,"social_url":social_url});
+                             }
+                           })
+                         }
+                         $.each(config_form.form_elements,function(i,v){
+                           switch (v){
+                             case 'full_name':
+                               data_formTesti[v] = $('input#tpro_client_name').val();
+                               break;
+                             case 'email_address':
+                               data_formTesti[v] = $('input#tpro_client_email').val();
+                               break;
+                             case 'identity_position':
+                               data_formTesti[v] = $('input#tpro_client_designation').val();
+                               break;
+                             case 'company_name':
+                               data_formTesti[v] = $('input#tpro_client_company_name').val();
+                               break;
+                             case 'testimonial_title':
+                               data_formTesti[v] = $('input#tpro_testimonial_title').val();
+                               break;
+                             case 'testimonial':
+                               data_formTesti[v] = $('textarea#tpro_client_testimonial').val();
+                               break;
+                             case 'featured_image':
+                               data_formTesti[v] =link_image;
+                               break;
+                             case 'location':
+                               data_formTesti[v] = $('input#tpro_client_location').val();
+                               break;
+                             case 'phone_mobile':
+                               data_formTesti[v] = $('input#tpro_client_phone').val();
+                               break;
+                             case 'website':
+                               data_formTesti[v] = $('input#tpro_client_website').val();
+                               break;
+                             case 'video_url':
+                               data_formTesti[v] = $('input#tpro_client_video_url').val();
+                               break;
+                             case 'social_profile':
+                               data_formTesti[v] = data_social;
+                               break;
+                             case 'rating':
+                               data_formTesti[v] = $('input[name="tpro_client_rating"]').val();
+                               break;
+                             case 'recaptcha':
+                               data_formTesti[v] = $('input#tpro_client_website').val();
+                               break;
+                           }
+                         })
+                         data_formTesti["status"] = config_form.testimonial_approval_status;
+                         if((config_form.form_elements).includes('recaptcha')){
+                           var response = grecaptcha.getResponse();
+                           if(response != ''){
+                             $('.simesy-tpro-form-error-msg').addClass('hide');
+                             if(checkValid()){
+
+                               $.ajax({
+                                 type:'post',
+                                 async:false,
+                                 url:'https://testimonial.simesy.com/api/save_form_data',
+                                 data: { config:data_formTesti,shop: shop },
+                                 success:function(data){
+                                   switch (config_form.redirect){
+                                     case 'same_page':
+                                       clearForm();
+                                       $('.simesy-tpro-form-validation-msg').removeClass('hide');
+                                       break;
+                                     case 'to_a_page':
+                                       window.location = '/pages/'+config_form.page;
+                                       break;
+                                     case 'to_a_custom_url':
+                                       window.location = config_form.redirect_custom_url;
+                                       break;
+                                   }
+                                 }
+                               })
+                             }else{
+                               $("html, body").animate({ scrollTop: $('input.required.error').first().offset().top - 100 }, 600);
+                             }
+                           }else{
+                             $('.simesy-tpro-form-error-msg').removeClass('hide');
+                             $("html, body").animate({ scrollTop: $('.g-recaptcha').first().offset().top - 100 }, 600);
+
+                           }
+                         }else{
+                           if(checkValid()){
+
+                             $.ajax({
+                               type:'post',
+                               async:false,
+                               url:'https://testimonial.simesy.com/api/save_form_data',
+                               data: { config:data_formTesti,shop: shop },
+                               success:function(data){
+                                 switch (config_form.redirect){
+                                   case 'same_page':
+                                     clearForm();
+                                     $('.simesy-tpro-form-validation-msg').removeClass('hide');
+                                     break;
+                                   case 'to_a_page':
+                                     window.location = '/pages/'+config_form.page;
+                                     break;
+                                   case 'to_a_custom_url':
+                                     window.location = config_form.redirect_custom_url;
+                                     break;
+                                 }
+                               }
+                             })
+                           }else{
+                             $("html, body").animate({ scrollTop: $('input.required.error').first().offset().top - 100 }, 600);
+                           }
+                         }
+                       })
+                       $(document).on('keyup','.input-testi.required',function(){
+                         if($(this).val() != ''){
+                           $(this).removeClass('error').addClass('valid');
+                           $(this).next().hide();
+                           if($(this).attr('type') == 'email'){
+                             if(!checkemail($(this).val())){
+                               $(this).next().html('Please enter a valid email address.').show();
+                             }else{
+                               $(this).next().hide();
+                             }
+                           }
+                         }else{
+                           $(this).removeClass('valid').addClass('error');
+                           $(this).next().show();
+
+                         }
+                       })
+                       $(document).on('change','#tpro_client_image',function(){
+                         $(this).next().hide();
+                       })
+                       jQuery.fn.extend({
+                         createProfile: function(options = {}) {
+                           var hasOption = function(optionKey) {
+                             return options.hasOwnProperty(optionKey)
+                           }, option = function(optionKey) {
+                             return options[optionKey]
+                           }, generateId = function(string) {
+                             return string.replace(/\[/g, "_").replace(/\]/g, "").toLowerCase()
+                           }, addItem = function(items, key, fresh = !0) {
+                             var itemContent = items,
+                                 group = itemContent.data("group"),
+                                 item, input;
+                             itemContent.find("input,select").each((function(index, el) {
+                               var attrName = $(el).data("name"),
+                                   skipName;
+                               1 != $(el).data("skip-name") ? $(el).attr("name", group + "[" + key + "][" + attrName + "]") : "undefined" != attrName && $(el).attr("name", attrName), 1 == fresh && $(el).attr("value", ""), $(el).attr("id", generateId($(el).attr("name"))), $(el).parent().find("label").attr("for", generateId($(el).attr("name")))
+                             }));
+                             var itemClone = items,
+                                 removeButton;
+                             itemClone.find(".tpro-social-profile-remove").attr("onclick", "jQuery(this).parents('.tpro-social-profile-item').remove()");
+                             var newItem = $("<div class='tpro-social-profile-item'>" + itemClone.html() + "<div/>");
+                             newItem.attr("data-index", key), newItem.appendTo(repeater)
+                           }, repeater = this,
+                               items = repeater.find(".tpro-social-profile-item"),
+                               key = 0,
+                               addButton = $(".tpro-social-profile-wrapper").find(".tpro-add-new-profile-btn");
+                           items.each((function(index, item) {
+                             items.remove(), hasOption("showFirstItemToDefault") && 1 == option("showFirstItemToDefault") ? (addItem($(item), key), key++) : items.length > 1 && (addItem($(item), key), key++)
+                           })), addButton.on("click", (function() {
+                             addItem($(items[0]), key), key++
+                           }))
+                         }
+                       }), $("#tpro-social-profiles").createProfile({
+                         showFirstItemToDefault: !0
+                       })
                      }
                      var getTestimonialForm = function(config_form,id){
                        var output_form = "";
                        // Config
                        var form_fields = config_form.form_elements;
+                       if(form_fields.includes('recaptcha')){
+                         var script = document.createElement('script');
+                         script.id = 'tpro-recaptcha-js-js';
+                         script.src = 'https://www.google.com/recaptcha/api.js';
+                         document.body.appendChild(script);
+
+
+                       }
                        output_form += "<h4 class='section-form-title'>"+config_form.post_title+"<strong></strong></h4>";
                        var label_color = config_form.label_color != '' ? config_form.label_color : '',
                            submit_button_color = config_form.submit_button_color.color != '' ? config_form.submit_button_color.color : '',
@@ -122,7 +328,7 @@ color: #de7202;
                                if ( full_name_label != '' ) {
                                  output_form += '<label for="tpro_client_name">'+full_name_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_name" name="tpro_client_name" '+full_name_required+' placeholder="'+config_form.full_name.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_name" name="tpro_client_name" class="input-testi '+full_name_required+'" placeholder="'+config_form.full_name.placeholder+'"/></div>';
                              }
                              break;
                            case 'email_address':
@@ -133,7 +339,7 @@ color: #de7202;
                                if ( email_address_label != '' ) {
                                  output_form += '<label for="tpro_client_email">'+email_address_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_email" name="tpro_client_email" '+email_address_required+' placeholder="'+config_form.email_address.placeholder+'"/></div>';
+                               output_form +='<input type="email" id="tpro_client_email" name="tpro_client_email" class="input-testi '+email_address_required+'" placeholder="'+config_form.email_address.placeholder+'"/></div>';
                              }
                              break;
                            case 'identity_position':
@@ -144,7 +350,7 @@ color: #de7202;
                                if ( identity_position_label != '' ) {
                                  output_form += '<label for="tpro_client_designation">'+identity_position_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_designation" name="tpro_client_designation" '+identity_position_required+' placeholder="'+config_form.identity_position.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_designation" name="tpro_client_designation" class="input-testi '+identity_position_required+'" placeholder="'+config_form.identity_position.placeholder+'"/></div>';
                              }
                              break;
                            case 'company_name':
@@ -155,7 +361,7 @@ color: #de7202;
                                if ( company_name_label != '' ) {
                                  output_form += '<label for="tpro_client_company_name">'+company_name_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_company_name" name="tpro_client_company_name" '+company_name_required+' placeholder="'+config_form.company_name.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_company_name" name="tpro_client_company_name" class="input-testi '+company_name_required+'" placeholder="'+config_form.company_name.placeholder+'"/></div>';
                              }
                              break;
                            case 'testimonial_title':
@@ -166,7 +372,7 @@ color: #de7202;
                                if ( testimonial_title_label != '' ) {
                                  output_form += '<label for="tpro_testimonial_title">'+testimonial_title_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_testimonial_title" name="tpro_testimonial_title" '+testimonial_title_required+' placeholder="'+config_form.testimonial_title.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_testimonial_title" name="tpro_testimonial_title" class="input-testi '+testimonial_title_required+'" placeholder="'+config_form.testimonial_title.placeholder+'"/></div>';
                              }
                              break;
                            case 'testimonial':
@@ -177,18 +383,18 @@ color: #de7202;
                                if ( testimonial_label != '' ) {
                                  output_form += '<label for="tpro_client_testimonial">'+testimonial_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_testimonial" name="tpro_client_testimonial" '+testimonial_required+' placeholder="'+config_form.testimonial.placeholder+'"/></div>';
+                               output_form +='<textarea rows="7" type="text" id="tpro_client_testimonial" name="tpro_client_testimonial" class="'+testimonial_required+'" placeholder="'+config_form.testimonial.placeholder+'"></textarea></div>';
                              }
                              break;
                            case 'featured_image':
-                             if(form_field.includes('testimonial')){
+                             if(form_field.includes('featured_image')){
                                var featured_image_label = config_form.featured_image.label != '' ? config_form.featured_image.label : '';
                                var featured_image_required = config_form.featured_image.required ? 'required' : '';
                                output_form += '<div class="simesy-tpro-form-field">';
                                if ( featured_image_label != '' ) {
                                  output_form += '<label for="tpro_client_image">'+featured_image_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_image" name="tpro_client_image" '+featured_image_required+' placeholder="'+config_form.featured_image.placeholder+'"/></div>';
+                               output_form +='<input type="hide" name="tpro_client_image_url" id="tpro_client_image_url" style="display:none"/><input type="file" name="tpro_client_image" id="tpro_client_image" class="input-testi '+featured_image_required+'" accept="image/jpeg,image/jpg,image/png,"/></div>';
                              }
                              break;
                            case 'location':
@@ -199,7 +405,7 @@ color: #de7202;
                                if ( location_label != '' ) {
                                  output_form += '<label for="tpro_client_location">'+location_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_location" name="tpro_client_location" '+location_required+' placeholder="'+config_form.location.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_location" name="tpro_client_location" class="'+location_required+'" placeholder="'+config_form.location.placeholder+'"/></div>';
                              }
                              break;
                            case 'phone_mobile':
@@ -210,7 +416,7 @@ color: #de7202;
                                if ( phone_mobile_label != '' ) {
                                  output_form += '<label for="tpro_client_phone">'+phone_mobile_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_phone" name="tpro_client_phone" '+phone_mobile_required+' placeholder="'+config_form.phone_mobile.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_phone" name="tpro_client_phone" class="input-testi '+phone_mobile_required+'" placeholder="'+config_form.phone_mobile.placeholder+'"/></div>';
                              }
                              break;
                            case 'website':
@@ -221,7 +427,7 @@ color: #de7202;
                                if ( website_label != '' ) {
                                  output_form += '<label for="tpro_client_website">'+website_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_website" name="tpro_client_website" '+website_required+' placeholder="'+config_form.website.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_website" name="tpro_client_website" class="input-testi '+website_required+'" placeholder="'+config_form.website.placeholder+'"/></div>';
                              }
                              break;
                            case 'video_url':
@@ -232,7 +438,7 @@ color: #de7202;
                                if ( video_url_label != '' ) {
                                  output_form += '<label for="tpro_client_video_url">'+video_url_label+'</label><br>';
                                }
-                               output_form +='<input type="text" id="tpro_client_video_url" name="tpro_client_video_url" '+video_url_required+' placeholder="'+config_form.video_url.placeholder+'"/></div>';
+                               output_form +='<input type="text" id="tpro_client_video_url" name="tpro_client_video_url" class="input-testi '+video_url_required+'" placeholder="'+config_form.video_url.placeholder+'"/></div>';
                              }
                              break;
                            case 'social_profile':
@@ -273,7 +479,7 @@ color: #de7202;
                                output_form += '<input type="radio" name="tpro_client_rating" id="_tpro_rating_4" value="four_star"> <label for="_tpro_rating_4" title="Four Stars"><i class="fa fa-star"></i></label>';
                                output_form += '<input type="radio" name="tpro_client_rating" id="_tpro_rating_3" value="three_star"> <label for="_tpro_rating_3" title="Three Stars"><i class="fa fa-star"></i></label>';
                                output_form += '<input type="radio" name="tpro_client_rating" id="_tpro_rating_2" value="two_star"> <label for="_tpro_rating_2" title="Two Stars"><i class="fa fa-star"></i></label>';
-                               output_form += '<input type="radio" name="tpro_client_rating" id="_tpro_rating_1" value="one_star"> <label for="_tpro_rating_5" title="One Stars"><i class="fa fa-star"></i></label>';
+                               output_form += '<input type="radio" name="tpro_client_rating" id="_tpro_rating_1" value="one_star"> <label for="_tpro_rating_1" title="One Stars"><i class="fa fa-star"></i></label>';
                                output_form += '</div><br></div>';
                              }
                              break;
@@ -284,13 +490,18 @@ color: #de7202;
                                if ( recaptcha_label != '' ) {
                                  output_form += '<label for="tpro_recaptcha">'+recaptcha_label+'</label><br>';
                                }
-                               output_form +='<div class="g-recaptcha" data-sitekey=""></div>';
+                               output_form +='<div class="g-recaptcha" data-sitekey="6LcGrdAdAAAAABUJ-VuJhrxifyHLr66FXpVghg19"></div>';
+                               output_form += '<div class="simesy-tpro-form-error-msg hide">Please click on the reCAPTCHA box.</div>';
                                output_form += '</div>';
                              }
                              break;
                            case 'submit_btn':
-                             output_form += '<div class="simesy-tpro-form-submit-button">';
+                             output_form += '<div class="simesy-tpro-form-submit-button">'; 
                              output_form += '<input type="submit" value="'+config_form.submit_btn.label+'" id="submit" name="submit"/><input type="hidden" name="action" value="testimonial_form"/>';
+                             if(form_fields.includes('recaptcha')){
+                               output_form += '<input type="hidden" id="token" name="token">';
+                             }
+
                              output_form += '</div>';
                              break;
                          }
@@ -300,310 +511,339 @@ color: #de7202;
                        }
                        output_form += '</form></div>'
                        $('#simesy-testimonial-form-'+id).html(output_form);      
+
                      }
-                     // Testimonial
-                     var initTestimonialSlider = function ($) {
+                     function clearForm(){
+                       $('#testimonial_form .simesy-tpro-form-field input').val('');
+                       $('#testimonial_form .simesy-tpro-form-field textarea').val('');
+                       $('#testimonial_form .simesy-tpro-form-field input[type="radio"]').prop('checked',false);
+                     }
+                         function checkValid(){
+                           let formIsValid = true;
+                           $('.input-testi.required').each(function(i,v){
+                             if($(this).val() == ''){
+                               $(this).addClass('error');
+                               if($(this).next('label.error').length == 0){
+                                 $(this).parent().append('<label for="'+$(this).attr('id')+'" generated="true" class="error">This field is required.</label>')
+                               }
+                               formIsValid = false;
+                             }
+                           })
+                           if($(this).attr('type') == 'email'){
+                             if(!checkemail($(this).val())){
+                               formIsValid = false;
+                             }
+                           }
+                           return formIsValid;
+                         }
 
-                       var cssLink = $("<link />", {
-                         rel: "stylesheet",
-                         type: "text/css",
-                         href: "https://cdn.shopify.com/s/files/1/0610/3502/0528/t/1/assets/testimonial-main.css",
-                       });
-                       $("head").append($("<link />", {
-                         rel: "stylesheet",
-                         type: "text/css",
-                         href:"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
-                       }));
-                       $("head").append(cssLink);
-                       var config = '';
-                       $("body").find(".simesy-testimonial-pro-wrapper").each(function (i, v) {
+                         function checkemail(email) {
+                           var re = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+                           return re.test(email);
+                         }
+                         // Testimonial
+                         var initTestimonialSlider = function ($) {
 
-                         var id = $(this).data("view-id");
-                         var shop = window.Shopify.shop;
-                         $.ajax({
-                           url: "https://testimonial.simesy.com/api/get_shortcode",
-                           type: "post",
-                           dataType: "JSON",
-                           async: false,
-                           data: { id:id,shop: shop },
-                           success: function (response) {
-                             config = response.data.shortCode.config;
-                             var testimonial_list = response.data.shortCode.testimonials;
-                             get_slider(config,id,testimonial_list);
-                           },
-                         });
-                       });
-                       $(document).find(".simesy-testimonial-pro-section").each(function () {
-                         var is_this = $(this),
-                             id_section = is_this.attr("id"),
-                             preloader = is_this.data("preloader"),
-                             layout_present = is_this.data("layout");
-                         if (preloader) {
-                           var siblings_preload = $(this).siblings(".simesy-preloader");
-                           siblings_preload.animate({
-                             opacity:1,
-                           }, 1400, "linear", function() {
-                             opacity:0,
-                               siblings_preload.hide();
-                             siblings_preload.siblings('.simesy-section-title').removeClass('preloader')
+                           var cssLink = $("<link />", {
+                             rel: "stylesheet",
+                             type: "text/css",
+                             href: "https://cdn.shopify.com/s/files/1/0610/3502/0528/t/1/assets/testimonial-main.css",
                            });
-                         }
-                         if (id_section != "" && layout_present == "slider") {
-                           if (is_this.data("mode") == "ticker") {
-                             $("#"+ id_section).slick({
-                               cssEase: "linear",
-                               dots:false,
-                               arrows:false,
+                           $("head").append($("<link />", {
+                             rel: "stylesheet",
+                             type: "text/css",
+                             href:"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css",
+                           }));
+                           $("head").append(cssLink);
+                           var config = '';
+                           $("body").find(".simesy-testimonial-pro-wrapper").each(function (i, v) {
+
+                             var id = $(this).data("view-id");
+                             var shop = window.Shopify.shop;
+                             $.ajax({
+                               url: "https://testimonial.simesy.com/api/get_shortcode",
+                               type: "post",
+                               dataType: "JSON",
+                               async: false,
+                               data: { id:id,shop: shop },
+                               success: function (response) {
+                                 config = response.data.shortCode.config;
+                                 var testimonial_list = response.data.shortCode.testimonials;
+                                 get_slider(config,id,testimonial_list);
+                               },
                              });
+                           });
+                           $(document).find(".simesy-testimonial-pro-section").each(function () {
+                             var is_this = $(this),
+                                 id_section = is_this.attr("id"),
+                                 preloader = is_this.data("preloader"),
+                                 layout_present = is_this.data("layout");
+                             if (preloader) {
+                               var siblings_preload = $(this).siblings(".simesy-preloader");
+                               siblings_preload.animate({
+                                 opacity:1,
+                               }, 1400, "linear", function() {
+                                 opacity:0,
+                                   siblings_preload.hide();
+                                 siblings_preload.siblings('.simesy-section-title').removeClass('preloader')
+                               });
+                             }
+                             if (id_section != "" && layout_present == "slider") {
+                               if (is_this.data("mode") == "ticker") {
+                                 $("#"+ id_section).slick({
+                                   cssEase: "linear",
+                                   dots:false,
+                                   arrows:false,
+                                 });
 
-                           } else {
-                             $("#"+ id_section).slick({prevArrow:'<div class="slick-prev"><i class="fa fa-' +is_this.data("arrowicon") +'-left"></i></div>',nextArrow:'<div class="slick-next"><i class="fa fa-' +is_this.data("arrowicon") +'-right"></i></div>',});
-                           }
-                         }
-                         if (id_section != "" && layout_present == "grid") {
-                           var grid_masonry,msnry = $(".grid_style_masonry .simesy-product-section#simesy-product-slider-" +id_section)
-                           .masonry({
-                             itemSelector: "div.simesy-masonry-item",
-                           }).data("masonry");
-                         }
-                       });
-                       $(document).find("div[data-view-id]").each(function(){
-                         var sliderID = $(this).attr("id"),
-                             testimonailData_video = $("#" + sliderID + " .simesy-testimonial-pro-section").data("video"),
-                             testimonailData_thumb = $("#" + sliderID + " .simesy-testimonial-pro-section").data("thumbnailslider"),
-                             stpmsnry;
-                         function tpro_read_more_init() {
-                           if($("#" + sliderID + " .simesy-testimonial-pro-read-more.tpro-readmore-expand-true").length > 0 ){
-                             $("#" + sliderID + " .simesy-testimonial-pro-read-more.tpro-readmore-expand-true").each((function(index) {
-                               var tpro_custom_read_id = $(this).attr("id"),
-                                   tpro_read_more_config = JSON.parse($(this).closest(".simesy-testimonial-pro-wrapper").find(".sp-tpro-rm-config").text());
+                               } else {
+                                 $("#"+ id_section).slick({prevArrow:'<div class="slick-prev"><i class="fa fa-' +is_this.data("arrowicon") +'-left"></i></div>',nextArrow:'<div class="slick-next"><i class="fa fa-' +is_this.data("arrowicon") +'-right"></i></div>',});
+                               }
+                             }
+                             if (id_section != "" && layout_present == "grid") {
+                               var grid_masonry,msnry = $(".grid_style_masonry .simesy-product-section#simesy-product-slider-" +id_section)
+                               .masonry({
+                                 itemSelector: "div.simesy-masonry-item",
+                               }).data("masonry");
+                             }
+                           });
+                           $(document).find("div[data-view-id]").each(function(){
+                             var sliderID = $(this).attr("id"),
+                                 testimonailData_video = $("#" + sliderID + " .simesy-testimonial-pro-section").data("video"),
+                                 testimonailData_thumb = $("#" + sliderID + " .simesy-testimonial-pro-section").data("thumbnailslider"),
+                                 stpmsnry;
+                             function tpro_read_more_init() {
+                               if($("#" + sliderID + " .simesy-testimonial-pro-read-more.tpro-readmore-expand-true").length > 0 ){
+                                 $("#" + sliderID + " .simesy-testimonial-pro-read-more.tpro-readmore-expand-true").each((function(index) {
+                                   var tpro_custom_read_id = $(this).attr("id"),
+                                       tpro_read_more_config = JSON.parse($(this).closest(".simesy-testimonial-pro-wrapper").find(".sp-tpro-rm-config").text());
 
-                               $("#" + tpro_custom_read_id + " .tpro-client-testimonial .tpro-read-more:contains(" + tpro_read_more_config.testimonial_read_more_text + ")").trigger("click"), "" != tpro_custom_read_id && ($(document).find("#" + tpro_custom_read_id + " .tpro-client-testimonial").curtail({
-                                 limit: parseInt(tpro_read_more_config.testimonial_characters_limit),
-                                 ellipsis: tpro_read_more_config.testimonial_read_more_ellipsis,
-                                 toggle: !0,
-                                 text: [tpro_read_more_config.testimonial_read_less_text, tpro_read_more_config.testimonial_read_more_text]
-                               }),
+                                   $("#" + tpro_custom_read_id + " .tpro-client-testimonial .tpro-read-more:contains(" + tpro_read_more_config.testimonial_read_more_text + ")").trigger("click"), "" != tpro_custom_read_id && ($(document).find("#" + tpro_custom_read_id + " .tpro-client-testimonial").curtail({
+                                     limit: parseInt(tpro_read_more_config.testimonial_characters_limit),
+                                     ellipsis: tpro_read_more_config.testimonial_read_more_ellipsis,
+                                     toggle: !0,
+                                     text: [tpro_read_more_config.testimonial_read_less_text, tpro_read_more_config.testimonial_read_more_text]
+                                   }),
                              $("#" + tpro_custom_read_id + " .tpro-client-testimonial .tpro-read-more").on("click", (function() {
-                                 $(this).parent().toggleClass("tpro-testimonial-expanded");
-                                 $("#" + sliderID + " .simesy_testimonial_pro_masonry").length && $("#" + sliderID + " .simesy_testimonial_pro_masonry .sp-tpro-items").masonry(), $(".simesy_testimonial_pro_filter").length && $(this).closest(".simesy-tpro-isotope-items, .isotope").resize()
-                               })))
-                             }))
+                                     $(this).parent().toggleClass("tpro-testimonial-expanded");
+                                     $("#" + sliderID + " .simesy_testimonial_pro_masonry").length && $("#" + sliderID + " .simesy_testimonial_pro_masonry .sp-tpro-items").masonry(), $(".simesy_testimonial_pro_filter").length && $(this).closest(".simesy-tpro-isotope-items, .isotope").resize()
+                                   })))
+                                 }))
+                               }
+                             }
+                             function trpo_masonry_init() {
+                               var masonry = $("#" + sliderID + " .simesy_testimonial_pro_masonry .sp-tpro-items");
+                               masonry.length > 0 && (masonry.masonry(), masonry.imagesLoaded((function() {
+                                 masonry.masonry()
+                               })), stpmsnry = masonry.data("masonry"))
+
+                             }
+                             function tpro_popup_init() {
+                               if(testimonailData_thumb == false && testimonailData_video === 1){
+                                 $(".sp-tpro-video").magnificPopup({
+                                   type: "iframe",
+                                   mainClass: "mfp-fade",
+                                   preloader: false,
+                                   fixedContentPos: false,
+                                 })
+                               }
+                             }
+
+                             tpro_read_more_init(),tpro_popup_init();
+                             if($("[data-remodal-id]").length > 0){
+                               $("[data-remodal-id]").remodal()
+                             }
+                           })
+
+                         };
+                         var get_slider = function (config, id, testimonial_list) {
+                           $('.simesy-slider-section[data-slider-id="' + id + '"]').addClass("simesy-slider-section-" + id + "");
+                           /* App code */
+                           // General Settings
+                           var layout_present = config.layout[0],
+                               pre_loader = config.preloader,
+                               display_testimonials_from = config.display_testimonials_from,
+                               number_of_total_testimonials = config.number_of_total_testimonials,
+                               random_order = config.random_order,
+                               testimonial_order_by = config.testimonial_order_by,
+                               testimonial_order = config.testimonial_order;
+
+
+                           //Theme settings
+                           var theme_style = config.theme_style,
+                               testimonial_margin = config.testimonial_margin != "" ? config.testimonial_margin : "20";
+
+                           // Slider Controls
+                           var carousel_ticker_mode = config.slider_mode[0],
+                               navigation_arrow = config.navigation[0],
+                               navigation_arrow_type = config.navigation_icons[0],
+                               navigation_position = config.navigation_position,
+                               pagination = config.pagination[0];
+
+                           // Display Option
+                           var section_title = config.section_title,
+                               testimonial_title = config.testimonial_title,
+                               testimonial_title_tag = config.testimonial_title_tag,
+
+                               testimonial_content = config.testimonial_text,
+                               testimonial_content_type = config.testimonial_content_type,
+                               testimonial_content_limit = config.testimonial_characters_limit,
+
+                               testimonial_content_readmore = config.testimonial_read_more,
+                               testimonial_fullname = config.testimonial_client_name,
+
+                               testimonial_client_rating = config.testimonial_client_rating,
+
+                               client_designation = config.client_designation,
+                               client_company_name = config.client_company_name,
+                               testimonial_client_location = config.testimonial_client_location,
+                               testimonial_client_phone = config.testimonial_client_phone,
+                               testimonial_client_email = config.testimonial_client_email,
+                               testimonial_client_date = config.testimonial_client_date,
+                               testimonial_client_date_format = config.testimonial_client_date_format,
+                               testimonial_client_website = config.testimonial_client_website,
+
+
+                               // Social
+                               social_profile = config.social_profile;
+
+                           // Image settings
+                           var testimonial_image = config.client_image,
+                               thumbnail_slider = config.thumbnail_slider,
+
+                               image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                               image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120,
+                               image_mode = config.image_grayscale,
+                               video_icon = config.video_icon,
+                               video_icon_color = config.video_icon_color,
+                               video_icon_color_overlay = config.video_icon_overlay;
+
+                           // Typography
+                           var section_title_font_load = config.slider_title_font_load,
+                               testimonial_title_font_load = config.testimonial_title_font_load,
+                               testimonial_content_font_load = config.testimonial_text_font_load,
+                               fullname_font_load = config.client_name_font_load,
+                               company_font_load = config.designation_company_font_load,
+                               location_font_load = config.location_font_load,
+                               phone_font_load = config.phone_font_load,
+                               email_font_load = config.email_font_load,
+                               date_font_load = config.date_font_load,
+                               website_font_load = config.website_font_load;
+                           var testimonial_simesy_font = [],
+                               testimonial_simesy_typography = [];
+                           if (section_title_font_load) {
+                             testimonial_simesy_typography.push(config.slider_title_typography);
                            }
-                         }
-                         function trpo_masonry_init() {
-                           var masonry = $("#" + sliderID + " .simesy_testimonial_pro_masonry .sp-tpro-items");
-                           masonry.length > 0 && (masonry.masonry(), masonry.imagesLoaded((function() {
-                             masonry.masonry()
-                           })), stpmsnry = masonry.data("masonry"))
-
-                         }
-                         function tpro_popup_init() {
-                           if(testimonailData_thumb == false && testimonailData_video === 1){
-                             $(".sp-tpro-video").magnificPopup({
-                               type: "iframe",
-                               mainClass: "mfp-fade",
-                               preloader: false,
-                               fixedContentPos: false,
-                             })
+                           if (testimonial_title_font_load) {
+                             testimonial_simesy_typography.push(config.testimonial_title_typography);
                            }
-                         }
+                           if (testimonial_content_font_load) {
+                             testimonial_simesy_typography.push(config.testimonial_text_typography);
+                           }
+                           if (fullname_font_load) {
+                             testimonial_simesy_typography.push(config.client_name_typography);
+                           }
+                           if (company_font_load) {
+                             testimonial_simesy_typography.push(config.client_designation_company_typography);
+                           }
+                           if (location_font_load) {
+                             testimonial_simesy_typography.push(config.client_location_typography);
+                           }
+                           if (phone_font_load) {
+                             testimonial_simesy_typography.push(config.client_phone_typography);
+                           }
+                           if (email_font_load) {
+                             testimonial_simesy_typography.push(config.client_email_typography);
+                           }
+                           if (date_font_load) {
+                             testimonial_simesy_typography.push(config.testimonial_date_typography);
+                           }
+                           if (website_font_load) {
+                             testimonial_simesy_typography.push(config.client_website_typography);
+                           }
+                           for (var i = 0; i < testimonial_simesy_typography.length; i++) {
+                             var font_weight = testimonial_simesy_typography[i]["font-weight"] != "normal" ? ":" + testimonial_simesy_typography[i]["font-weight"] : "";
+                             testimonial_simesy_font.push(testimonial_simesy_typography[i]["font-family"] + font_weight);
+                           }
+                           if (testimonial_simesy_font != "") {
+                             var encode_link = encodeURIComponent(testimonial_simesy_font.filter((font) => font).join("|"));
+                             var link = $("<link />", {
+                               rel: "stylesheet",
+                               type: "text/css",
+                               href: "//fonts.googleapis.com/css?family=" + encode_link,
+                             });
+                             $("body").append(link);
+                           }
+                           // Show/Hide navigation slick
+                           switch (navigation_arrow) {
+                             case "true":
+                               var nav_all = "true";
+                               var nav_desktop = "true";
+                               var nav_mobile = "true";
+                               break;
+                             case "hide_on_mobile":
+                               var nav_desktop = "true";
+                               var nav_mobile = "false";
+                               break;
+                             default:
+                               var nav_all = "false";
+                               var nav_desktop = "false";
+                               var nav_mobile = "false";
+                           }
+                           // Show/Hide pagination slick
 
-                         tpro_read_more_init(),tpro_popup_init();
-                         if($("[data-remodal-id]").length > 0){
-                           $("[data-remodal-id]").remodal()
-                         }
-                       })
-
-                     };
-                     var get_slider = function (config, id, testimonial_list) {
-                       $('.simesy-slider-section[data-slider-id="' + id + '"]').addClass("simesy-slider-section-" + id + "");
-                       /* App code */
-                       // General Settings
-                       var layout_present = config.layout[0],
-                           pre_loader = config.preloader,
-                           display_testimonials_from = config.display_testimonials_from,
-                           number_of_total_testimonials = config.number_of_total_testimonials,
-                           random_order = config.random_order,
-                           testimonial_order_by = config.testimonial_order_by,
-                           testimonial_order = config.testimonial_order;
-
-
-                       //Theme settings
-                       var theme_style = config.theme_style,
-                           testimonial_margin = config.testimonial_margin != "" ? config.testimonial_margin : "20";
-
-                       // Slider Controls
-                       var carousel_ticker_mode = config.slider_mode[0],
-                           navigation_arrow = config.navigation[0],
-                           navigation_arrow_type = config.navigation_icons[0],
-                           navigation_position = config.navigation_position,
-                           pagination = config.pagination[0];
-
-                       // Display Option
-                       var section_title = config.section_title,
-                           testimonial_title = config.testimonial_title,
-                           testimonial_title_tag = config.testimonial_title_tag,
-
-                           testimonial_content = config.testimonial_text,
-                           testimonial_content_type = config.testimonial_content_type,
-                           testimonial_content_limit = config.testimonial_characters_limit,
-
-                           testimonial_content_readmore = config.testimonial_read_more,
-                           testimonial_fullname = config.testimonial_client_name,
-
-                           testimonial_client_rating = config.testimonial_client_rating,
-
-                           client_designation = config.client_designation,
-                           client_company_name = config.client_company_name,
-                           testimonial_client_location = config.testimonial_client_location,
-                           testimonial_client_phone = config.testimonial_client_phone,
-                           testimonial_client_email = config.testimonial_client_email,
-                           testimonial_client_date = config.testimonial_client_date,
-                           testimonial_client_date_format = config.testimonial_client_date_format,
-                           testimonial_client_website = config.testimonial_client_website,
-
-
-                           // Social
-                           social_profile = config.social_profile;
-
-                       // Image settings
-                       var testimonial_image = config.client_image,
-                           thumbnail_slider = config.thumbnail_slider,
-
-                           image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                           image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120,
-                           image_mode = config.image_grayscale,
-                           video_icon = config.video_icon,
-                           video_icon_color = config.video_icon_color,
-                           video_icon_color_overlay = config.video_icon_overlay;
-
-                       // Typography
-                       var section_title_font_load = config.slider_title_font_load,
-                           testimonial_title_font_load = config.testimonial_title_font_load,
-                           testimonial_content_font_load = config.testimonial_text_font_load,
-                           fullname_font_load = config.client_name_font_load,
-                           company_font_load = config.designation_company_font_load,
-                           location_font_load = config.location_font_load,
-                           phone_font_load = config.phone_font_load,
-                           email_font_load = config.email_font_load,
-                           date_font_load = config.date_font_load,
-                           website_font_load = config.website_font_load;
-                       var testimonial_simesy_font = [],
-                           testimonial_simesy_typography = [];
-                       if (section_title_font_load) {
-                         testimonial_simesy_typography.push(config.slider_title_typography);
-                       }
-                       if (testimonial_title_font_load) {
-                         testimonial_simesy_typography.push(config.testimonial_title_typography);
-                       }
-                       if (testimonial_content_font_load) {
-                         testimonial_simesy_typography.push(config.testimonial_text_typography);
-                       }
-                       if (fullname_font_load) {
-                         testimonial_simesy_typography.push(config.client_name_typography);
-                       }
-                       if (company_font_load) {
-                         testimonial_simesy_typography.push(config.client_designation_company_typography);
-                       }
-                       if (location_font_load) {
-                         testimonial_simesy_typography.push(config.client_location_typography);
-                       }
-                       if (phone_font_load) {
-                         testimonial_simesy_typography.push(config.client_phone_typography);
-                       }
-                       if (email_font_load) {
-                         testimonial_simesy_typography.push(config.client_email_typography);
-                       }
-                       if (date_font_load) {
-                         testimonial_simesy_typography.push(config.testimonial_date_typography);
-                       }
-                       if (website_font_load) {
-                         testimonial_simesy_typography.push(config.client_website_typography);
-                       }
-                       for (var i = 0; i < testimonial_simesy_typography.length; i++) {
-                         var font_weight = testimonial_simesy_typography[i]["font-weight"] != "normal" ? ":" + testimonial_simesy_typography[i]["font-weight"] : "";
-                         testimonial_simesy_font.push(testimonial_simesy_typography[i]["font-family"] + font_weight);
-                       }
-                       if (testimonial_simesy_font != "") {
-                         var encode_link = encodeURIComponent(testimonial_simesy_font.filter((font) => font).join("|"));
-                         var link = $("<link />", {
-                           rel: "stylesheet",
-                           type: "text/css",
-                           href: "//fonts.googleapis.com/css?family=" + encode_link,
-                         });
-                         $("body").append(link);
-                       }
-                       // Show/Hide navigation slick
-                       switch (navigation_arrow) {
-                         case "true":
-                           var nav_all = "true";
-                           var nav_desktop = "true";
-                           var nav_mobile = "true";
-                           break;
-                         case "hide_on_mobile":
-                           var nav_desktop = "true";
-                           var nav_mobile = "false";
-                           break;
-                         default:
-                           var nav_all = "false";
-                           var nav_desktop = "false";
-                           var nav_mobile = "false";
-                       }
-                       // Show/Hide pagination slick
-
-                       switch (pagination) {
-                         case "true":
-                           var pagi_all = "true";
-                           var pagi_desktop = "true";
-                           var pagi_mobile = "true";
-                           break;
-                         case "hide_on_mobile":
-                           var pagi_desktop = "true";
-                           var pagi_mobile = "false";
-                           break;
-                         default:
-                           var pagi_all = "false";
-                           var pagi_desktop = "false";
-                           var pagi_mobile = "false";
-                       }
-                       // Render HTML
-                       let data_all = [];
-                       // Render CSS
-                       var css = "";
+                           switch (pagination) {
+                             case "true":
+                               var pagi_all = "true";
+                               var pagi_desktop = "true";
+                               var pagi_mobile = "true";
+                               break;
+                             case "hide_on_mobile":
+                               var pagi_desktop = "true";
+                               var pagi_mobile = "false";
+                               break;
+                             default:
+                               var pagi_all = "false";
+                               var pagi_desktop = "false";
+                               var pagi_mobile = "false";
+                           }
+                           // Render HTML
+                           let data_all = [];
+                           // Render CSS
+                           var css = "";
 
 
-                       if(config.layout[0] == 'masonry' || config.layout[0] == 'grid'){
-                         css += `
+                           if(config.layout[0] == 'masonry' || config.layout[0] == 'grid'){
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item{
 padding-right:${testimonial_margin}px;
 }`;              
-                       }
-                       if ( config.layout[0] == 'slider' ) {
-                         css += `
+                           }
+                           if ( config.layout[0] == 'slider' ) {
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item{
 padding-right:${testimonial_margin}px;
 }
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section.slick-initialized {
 display: block;
 }`;
-                       }
-                       else if  ( config.layout[0] == 'grid' || config.layout[0] == 'masonry' || config.layout[0] == 'list' || config.layout[0] == 'filter' ){
-                         css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item{
+                           }
+                           else if  ( config.layout[0] == 'grid' || config.layout[0] == 'masonry' || config.layout[0] == 'list' || config.layout[0] == 'filter' ){
+                             css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item{
 margin-bottom: ${testimonial_margin}px;
 }`;
-                       }
-                       if ( config.layout[0] == 'filter' ) {
-                         var filter_alignment = config.filter_alignment,
-                             filter_colors_color = config.filter_colors.color,
-                             filter_colors_background = config.filter_colors.background,
-                             filter_colors_hover_color = config.filter_colors.hover_color,
-                             filter_colors_active_background = config.filter_colors.active_background,
-                             filter_border_all = config.filter_border.all != '' ? config.filter_border.all : '2',
-                             filter_border_style = config.filter_border.style != '' ? config.filter_border.style : 'solid',
-                             filter_border_color = config.filter_border.color != '' ? config.filter_border.color : '#bbbbbb',
-                             filter_border_color_hv = config.filter_border.hover_color != '' ? config.filter_border.hover_color : '#1595CE';
-                         css += `
+                           }
+                           if ( config.layout[0] == 'filter' ) {
+                             var filter_alignment = config.filter_alignment,
+                                 filter_colors_color = config.filter_colors.color,
+                                 filter_colors_background = config.filter_colors.background,
+                                 filter_colors_hover_color = config.filter_colors.hover_color,
+                                 filter_colors_active_background = config.filter_colors.active_background,
+                                 filter_border_all = config.filter_border.all != '' ? config.filter_border.all : '2',
+                                 filter_border_style = config.filter_border.style != '' ? config.filter_border.style : 'solid',
+                                 filter_border_color = config.filter_border.color != '' ? config.filter_border.color : '#bbbbbb',
+                                 filter_border_color_hv = config.filter_border.hover_color != '' ? config.filter_border.hover_color : '#1595CE';
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section.simesy_testimonial_pro_filter .sp-tpro-filter{
 text-align: ${filter_alignment};
 margin-right:${testimonial_margin}px;
@@ -619,38 +859,38 @@ border-color: ${filter_border_color_hv};
 background: ${filter_colors_background};
 }
 `;}
-                       if(testimonial_content_readmore){
-                         var testimonial_content_readmore_color = config.testimonial_readmore_color.color,
-                             testimonial_content_readmore_hover = config.testimonial_readmore_color.hover_color,
-                             popup_background = config.popup_background;
-                         css += `
+                           if(testimonial_content_readmore){
+                             var testimonial_content_readmore_color = config.testimonial_readmore_color.color,
+                                 testimonial_content_readmore_hover = config.testimonial_readmore_color.hover_color,
+                                 popup_background = config.popup_background;
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item a.tpro-read-more{
 color: ${testimonial_content_readmore_color};
 }
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro-item a.tpro-read-more:hover{
 color: ${testimonial_content_readmore_hover};
 }`;}
-                       if ( config.layout[0] !== 'list' ) {
-                         css += `
+                           if ( config.layout[0] !== 'list' ) {
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simessy-testimonial-pro-item{
 padding-right:${testimonial_margin}px } 
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .sp-tpro-items{
 margin-right:-${testimonial_margin}px; }`;
-                       }
-                       // Slider Title
-                       if(section_title){
-                         var section_title_type_color = config.slider_title_typography.color,
-                             section_title_type_font_size = config.slider_title_typography["font-size"],
-                             section_title_type_line_height = config.slider_title_typography["line-height"],
-                             section_title_type_text_transform = config.slider_title_typography["text-transform"],
-                             section_title_type_letter_spacing = config.slider_title_typography["letter-spacing"],
-                             section_title_type_text_align = config.slider_title_typography["text-align"],
-                             section_title_type_mb = config.slider_title_typography["margin-bottom"],
-                             section_title_type_font_weight = config.slider_title_typography["font-weight"];
-                         var font_weight = section_title_type_font_weight && section_title_type_font_weight !== "italic" && section_title_type_font_weight !== "normal" ? section_title_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = section_title_type_font_weight && section_title_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         var font_normal = section_title_type_font_weight && section_title_type_font_weight !== "italic" && section_title_type_font_weight === "normal" ? "normal" : "";
-                         css += `
+                           }
+                           // Slider Title
+                           if(section_title){
+                             var section_title_type_color = config.slider_title_typography.color,
+                                 section_title_type_font_size = config.slider_title_typography["font-size"],
+                                 section_title_type_line_height = config.slider_title_typography["line-height"],
+                                 section_title_type_text_transform = config.slider_title_typography["text-transform"],
+                                 section_title_type_letter_spacing = config.slider_title_typography["letter-spacing"],
+                                 section_title_type_text_align = config.slider_title_typography["text-align"],
+                                 section_title_type_mb = config.slider_title_typography["margin-bottom"],
+                                 section_title_type_font_weight = config.slider_title_typography["font-weight"];
+                             var font_weight = section_title_type_font_weight && section_title_type_font_weight !== "italic" && section_title_type_font_weight !== "normal" ? section_title_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = section_title_type_font_weight && section_title_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             var font_normal = section_title_type_font_weight && section_title_type_font_weight !== "italic" && section_title_type_font_weight === "normal" ? "normal" : "";
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-section-title {
 margin: 0;
 padding: 0;
@@ -664,78 +904,78 @@ text-align:${section_title_type_text_align};
 font-weight:${font_weight};
 font-style:${font_style}
 }`;
-                         if (section_title_font_load) {
-                           var section_title_type_font_family = config.slider_title_typography["font-family"];
-                           css += `
+                             if (section_title_font_load) {
+                               var section_title_type_font_family = config.slider_title_typography["font-family"];
+                               css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-section-title {
 font-family:${section_title_type_font_family};
 }`;
-                         }
-                       }
-                       if(testimonial_image){
-                         var  testimonial_image_shape = config.client_image_style,
-                             testimonial_image_position = config.client_image_position[0],
-                             testimonial_image_margin_top = config.client_image_margin.top,
-                             testimonial_image_margin_right = config.client_image_margin.right,
-                             testimonial_image_margin_bottom = config.client_image_margin.bottom,
-                             testimonial_image_margin_left = config.client_image_margin.left,
-                             testimonial_image_border_shadow = config.client_image_box_shadow_color,
-                             testimonial_image_border_all = config.image_border.all,
-                             testimonial_image_border_style = config.image_border.style,
-                             testimonial_image_border_color = config.image_border.color,
-                             testimonial_image_bg = config.client_image_bg,
-                             testimonial_image_pd = config.image_padding.all,
-                             testimonial_image_pd_unit = config.image_padding.unit,
+                             }
+                           }
+                           if(testimonial_image){
+                             var  testimonial_image_shape = config.client_image_style,
+                                 testimonial_image_position = config.client_image_position[0],
+                                 testimonial_image_margin_top = config.client_image_margin.top,
+                                 testimonial_image_margin_right = config.client_image_margin.right,
+                                 testimonial_image_margin_bottom = config.client_image_margin.bottom,
+                                 testimonial_image_margin_left = config.client_image_margin.left,
+                                 testimonial_image_border_shadow = config.client_image_box_shadow_color,
+                                 testimonial_image_border_all = config.image_border.all,
+                                 testimonial_image_border_style = config.image_border.style,
+                                 testimonial_image_border_color = config.image_border.color,
+                                 testimonial_image_bg = config.client_image_bg,
+                                 testimonial_image_pd = config.image_padding.all,
+                                 testimonial_image_pd_unit = config.image_padding.unit,
 
-                             testimonial_image_margin_two_top = config.client_image_margin_tow.top,
-                             testimonial_image_margin_two_right = config.client_image_margin_tow.right,
-                             testimonial_image_margin_two_bottom = config.client_image_margin_tow.bottom,
-                             testimonial_image_margin_two_left = config.client_image_margin_tow.left;
-                         css += `
+                                 testimonial_image_margin_two_top = config.client_image_margin_tow.top,
+                                 testimonial_image_margin_two_right = config.client_image_margin_tow.right,
+                                 testimonial_image_margin_two_bottom = config.client_image_margin_tow.bottom,
+                                 testimonial_image_margin_two_left = config.client_image_margin_tow.left;
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image .sp-tpro-video i.fa{
 color: ${video_icon_color};
 }
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image .sp-tpro-video:before{
 background: ${video_icon_color_overlay};
 }`
-                         if ( theme_style == 'theme-one' || theme_style == 'theme-eight' ) {
-                           css += `
+                             if ( theme_style == 'theme-one' || theme_style == 'theme-eight' ) {
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 margin: ${testimonial_image_margin_top}px ${testimonial_image_margin_right}px ${testimonial_image_margin_bottom}px ${testimonial_image_margin_left}px;
 text-align: ${testimonial_image_position};
 }`;}
-                         if (theme_style == 'theme-ten' ) {
-                           css += `
+                             if (theme_style == 'theme-ten' ) {
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 margin: ${testimonial_image_margin_top}px ${testimonial_image_margin_right}px ${testimonial_image_margin_bottom}px ${testimonial_image_margin_left}px;
 text-align: ${testimonial_image_position};
 z-index: 2;
 position: relative;
 }`;
-                         }
-                         if (theme_style == 'theme-nine' ) {
-                           css += `
+                             }
+                             if (theme_style == 'theme-nine' ) {
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 margin: ${testimonial_image_margin_two_top}px ${testimonial_image_margin_two_right}px ${testimonial_image_margin_two_bottom}px ${testimonial_image_margin_two_left}px;
 }`;
-                         }
-                         if (theme_style == 'theme-four' || theme_style == 'theme-five' ) {
-                           if(config.client_image_position_two[0] == 'left'){
-                             css += `
+                             }
+                             if (theme_style == 'theme-four' || theme_style == 'theme-five' ) {
+                               if(config.client_image_position_two[0] == 'left'){
+                                 css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 float: left;
 margin-right: 25px;
 margin-bottom: 15px;
 }`;
-                           }else if(config.client_image_position_two[0] == 'right'){
-                             css += `
+                               }else if(config.client_image_position_two[0] == 'right'){
+                                 css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 float: right;
 margin-right: 25px;
 margin-bottom: 15px;
 }`;
-                           }else if(config.client_image_position_two[0] == 'top'){
-                             css += `
+                               }else if(config.client_image_position_two[0] == 'top'){
+                                 css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 text-align: center;
 margin-bottom: 22px;
@@ -743,8 +983,8 @@ margin-bottom: 22px;
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image img{
 display: inline-block;
 }`;              
-                           }else if(config.client_image_position_two[0] == 'bottom'){
-                             css += `
+                               }else if(config.client_image_position_two[0] == 'bottom'){
+                                 css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image{
 text-align: center;
 margin-top: 22px;
@@ -752,10 +992,10 @@ margin-top: 22px;
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image img{
 display: inline-block;
 }`;     
-                           }
-                         }
-                         if(config.client_image_border_shadow[0] == 'border'){
-                           css += `
+                               }
+                             }
+                             if(config.client_image_border_shadow[0] == 'border'){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image img,
 .simesy-tpro-modal-testimonial-${id} .tpro-client-image img{
 background: ${testimonial_image_bg};
@@ -763,8 +1003,8 @@ border: ${testimonial_image_border_all}px ${testimonial_image_border_style} ${te
 padding: ${testimonial_image_pd}px;
 }
 `;
-                         }else{
-                           css += `
+                             }else{
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image img,
 .simesy-tpro-modal-testimonial-${id} .tpro-client-image img{
 background: ${testimonial_image_bg};
@@ -772,26 +1012,26 @@ padding: ${testimonial_image_pd}px;
 box-shadow: 0px 0px 7px 0px ${testimonial_image_border_shadow};
 margin: 7px;
 }`;
-                         }
-                       }
-                       if (testimonial_image && theme_style == 'theme-two' ) {
-                         if ( config.client_image_border_shadow[0] == 'border' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         }
-                         var client_image_width_size       = client_image_total_width_size / 2;
-                         var client_image_width_size_right = client_image_total_height_size + parseInt(`${testimonial_margin}`);
-                         var client_image_height_size      = client_image_total_height_size / 2;
+                             }
+                           }
+                           if (testimonial_image && theme_style == 'theme-two' ) {
+                             if ( config.client_image_border_shadow[0] == 'border' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
+                             var client_image_width_size       = client_image_total_width_size / 2;
+                             var client_image_width_size_right = client_image_total_height_size + parseInt(`${testimonial_margin}`);
+                             var client_image_height_size      = client_image_total_height_size / 2;
 
-                         var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
-                         var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
-                         var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
-                         var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
-                         if ( config.client_image_position_two[0] == 'left' ) {
-                           css+= `
+                             var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
+                             var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
+                             var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
+                             var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
+                             if ( config.client_image_position_two[0] == 'left' ) {
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-left: ${client_image_width_size}px;
 position: relative;
@@ -804,8 +1044,8 @@ left: -${client_image_width_size}px;
 margin-top: -${client_image_height_size}px;
 }
 `;
-                         }else if(config.client_image_position_two[0] == 'right'){
-                           css+= `
+                             }else if(config.client_image_position_two[0] == 'right'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-right: ${client_image_width_size}px;
 position: relative;
@@ -818,8 +1058,8 @@ right: -${client_image_width_size}px;
 margin-top: -${client_image_height_size}px;
 }
 `      
-                         }else if(config.client_image_position_two[0] == 'top'){
-                           css+= `
+                             }else if(config.client_image_position_two[0] == 'top'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -832,8 +1072,8 @@ top: -${client_image_height_size}px;
 margin-left: -${client_image_width_size}px;
 }
 `      
-                         }else if(config.client_image_position_two[0] == 'bottom'){
-                           css+= `
+                             }else if(config.client_image_position_two[0] == 'bottom'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-bottom: ${client_image_width_size}px;
 position: relative;
@@ -846,27 +1086,27 @@ bottom: -${client_image_height_size}px;
 margin-left: -${client_image_width_size}px;
 }
 `      
-                         }
+                             }
 
-                       }
-                       if (testimonial_image && theme_style == 'theme-three' ) {
-                         if ( config.client_image_border_shadow[0] == 'border' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         }
-                         var client_image_width_size       = client_image_total_width_size / 2;
-                         var client_image_width_size_right = client_image_total_height_size + parseInt(`${testimonial_margin}`);
-                         var client_image_height_size      = client_image_total_height_size / 2;
+                           }
+                           if (testimonial_image && theme_style == 'theme-three' ) {
+                             if ( config.client_image_border_shadow[0] == 'border' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
+                             var client_image_width_size       = client_image_total_width_size / 2;
+                             var client_image_width_size_right = client_image_total_height_size + parseInt(`${testimonial_margin}`);
+                             var client_image_height_size      = client_image_total_height_size / 2;
 
-                         var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
-                         var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
-                         var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
-                         var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
-                         if ( config.client_image_position_three[0] == 'left-top' ) {
-                           css+= `
+                             var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
+                             var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
+                             var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
+                             var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
+                             if ( config.client_image_position_three[0] == 'left-top' ) {
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-left: ${client_image_width_size}px;
 position: relative;
@@ -878,8 +1118,8 @@ top: 45px;
 left: -${client_image_width_size}px;
 }
 `;
-                         }else if(config.client_image_position_three[0] == 'left-bottom'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'left-bottom'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-left: ${client_image_width_size }px;
 position: relative;
@@ -891,8 +1131,8 @@ bottom: 45px;
 left: -${client_image_width_size}px;
 }
 `      
-                         }else if(config.client_image_position_three[0] == 'right-top'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'right-top'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-right: ${client_image_width_size_right}px;
 position: relative;
@@ -904,8 +1144,8 @@ top: 45px;
 right: -${client_image_width_size}px;
 }
 `      
-                         }else if(config.client_image_position_three[0] == 'right-bottom'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'right-bottom'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-right: ${client_image_width_size_right}px;
 position: relative;
@@ -916,8 +1156,8 @@ position: absolute;
 bottom: 45px;
 right: -${client_image_width_size}px;
 }`      
-                         }else if(config.client_image_position_three[0] == 'top-left'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'top-left'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -927,9 +1167,9 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 left: 45px;
 top: -${client_image_height_size}px;}`      
-                         }
-                         else if(config.client_image_position_three[0] == 'top-right'){
-                           css+= `
+                             }
+                             else if(config.client_image_position_three[0] == 'top-right'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -939,9 +1179,9 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 right: 45px;
 top: -${client_image_height_size}px;}`      
-                         }
-                         else if(config.client_image_position_three[0] == 'bottom-left'){
-                           css+= `
+                             }
+                             else if(config.client_image_position_three[0] == 'bottom-left'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -951,9 +1191,9 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 left: 45px;
 bottom: -${client_image_height_size}px;}`      
-                         }
-                         else if(config.client_image_position_three[0] == 'bottom-right'){
-                           css+= `
+                             }
+                             else if(config.client_image_position_three[0] == 'bottom-right'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -963,27 +1203,27 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 right: 45px;
 bottom: -${client_image_height_size}px;}`      
-                         }
+                             }
 
-                       }
-                       if (testimonial_image && theme_style == 'theme-six' ) {
-                         if ( config.client_image_border_shadow[0] == 'border' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
-                           var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         }
-                         var client_image_width_size       = client_image_total_width_size / 2;
-                         var client_image_width_size_right = client_image_width_size + parseInt(`${testimonial_margin}`);
-                         var client_image_height_size      = client_image_total_height_size / 2;
+                           }
+                           if (testimonial_image && theme_style == 'theme-six' ) {
+                             if ( config.client_image_border_shadow[0] == 'border' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
+                               var client_image_total_width_size  = parseInt(config.image_custom_size.width) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
+                             var client_image_width_size       = client_image_total_width_size / 2;
+                             var client_image_width_size_right = client_image_width_size + parseInt(`${testimonial_margin}`);
+                             var client_image_height_size      = client_image_total_height_size / 2;
 
-                         var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
-                         var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
-                         var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
-                         var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
-                         if ( config.client_image_position_three[0] == 'left-top' ) {
-                           css+= `
+                             var testimonial_inner_padding_left   = parseInt(config.testimonial_inner_padding.left) + client_image_width_size;
+                             var testimonial_inner_padding_right  = parseInt(config.testimonial_inner_padding.right) + client_image_width_size;
+                             var testimonial_inner_padding_top    = parseInt(config.testimonial_inner_padding.top) + client_image_width_size;
+                             var testimonial_inner_padding_bottom = parseInt(config.testimonial_inner_padding.bottom) + client_image_width_size;
+                             if ( config.client_image_position_three[0] == 'left-top' ) {
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-left: ${client_image_width_size}px;
 position: relative;
@@ -995,8 +1235,8 @@ top: 30px;
 left: -${client_image_width_size}px;
 }
 `;
-                         }else if(config.client_image_position_three[0] == 'left-bottom'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'left-bottom'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-left: ${client_image_width_size}px;
 position: relative;
@@ -1008,8 +1248,8 @@ bottom: 30px;
 left: -${client_image_width_size}px;
 }
 `      
-                         }else if(config.client_image_position_three[0] == 'right-top'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'right-top'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-right: ${client_image_width_size_right}px;
 position: relative;
@@ -1021,8 +1261,8 @@ top: 30px;
 right: -${client_image_width_size}px;
 }
 `      
-                         }else if(config.client_image_position_three[0] == 'right-bottom'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'right-bottom'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-right: ${client_image_width_size_right}px;
 position: relative;
@@ -1033,8 +1273,8 @@ position: absolute;
 bottom: 30px;
 right: -${client_image_width_size}px;
 }`      
-                         }else if(config.client_image_position_three[0] == 'top-left'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'top-left'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -1044,9 +1284,9 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 left: 30px;
 top: -${client_image_height_size}px;}`      
-                         }
-                         else if(config.client_image_position_three[0] == 'top-right'){
-                           css+= `
+                             }
+                             else if(config.client_image_position_three[0] == 'top-right'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-top: ${client_image_width_size}px;
 position: relative;
@@ -1056,9 +1296,9 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 right: 30px;
 top: -${client_image_width_size}px;}`      
-                         }
-                         else if(config.client_image_position_three[0] == 'bottom-left'){
-                           css+= `
+                             }
+                             else if(config.client_image_position_three[0] == 'bottom-left'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-bottom: ${client_image_width_size}px;
 position: relative;
@@ -1068,8 +1308,8 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 left: 30px;
 bottom: -${client_image_height_size}px;}`      
-                         }else if(config.client_image_position_three[0] == 'bottom-right'){
-                           css+= `
+                             }else if(config.client_image_position_three[0] == 'bottom-right'){
+                               css+= `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 margin-bottom: ${client_image_width_size}px;
 position: relative;
@@ -1079,23 +1319,23 @@ padding: ${config.testimonial_inner_padding.top}px ${config.testimonial_inner_pa
 position: absolute;
 right: 30px;
 bottom: -${client_image_height_size}px;}`      
-                         }
+                             }
 
-                       }
-                       if (testimonial_image && theme_style == 'theme-seven' ) {
-                         if ( config.client_image_border_shadow[0] == 'border' ) {
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
-                           var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         }
+                           }
+                           if (testimonial_image && theme_style == 'theme-seven' ) {
+                             if ( config.client_image_border_shadow[0] == 'border' ) {
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             } else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
+                               var client_image_total_height_size = parseInt(config.image_custom_size.height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
 
-                         var client_image_height_size = client_image_total_height_size / 100;
-                         var client_image_height_size_top = client_image_height_size * 75;
-                         var client_image_height_size_bottom = client_image_height_size * 25;
+                             var client_image_height_size = client_image_total_height_size / 100;
+                             var client_image_height_size_top = client_image_height_size * 75;
+                             var client_image_height_size_bottom = client_image_height_size * 25;
 
-                         var testimonial_inner_padding_top = parseInt(config.testimonial_inner_padding.top) + parseInt(client_image_height_size_bottom);
+                             var testimonial_inner_padding_top = parseInt(config.testimonial_inner_padding.top) + parseInt(client_image_height_size_bottom);
 
-                         css += `
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 position: relative;
 padding: ${testimonial_inner_padding_top}px ${config.testimonial_inner_padding.right}px ${config.testimonial_inner_padding.bottom}px ${config.testimonial_inner_padding.left}px;
@@ -1106,24 +1346,24 @@ right: 30px;
 top: -${client_image_height_size_top}px;
 }
 `;
-                       }
-                       // Testimonial Title
-                       if(testimonial_title){
-                         var testimonial_title_type_color = config.testimonial_title_typography.color,
-                             testimonial_title_type_font_size = config.testimonial_title_typography["font-size"],
-                             testimonial_title_type_line_height = config.testimonial_title_typography["line-height"],
-                             testimonial_title_type_text_transform = config.testimonial_title_typography["text-transform"],
-                             testimonial_title_type_letter_spacing = config.testimonial_title_typography["letter-spacing"],
-                             testimonial_title_type_text_align = config.testimonial_title_typography["text-align"],
-                             testimonial_title_type_mt = config.testimonial_title_typography["margin-top"],
-                             testimonial_title_type_mr = config.testimonial_title_typography["margin-right"],
-                             testimonial_title_type_mb = config.testimonial_title_typography["margin-bottom"],
-                             testimonial_title_type_ml = config.testimonial_title_typography["margin-left"],
-                             testimonial_title_type_font_weight = config.testimonial_title_typography["font-weight"];
-                         var font_normal = testimonial_title_type_font_weight && testimonial_title_type_font_weight !== "italic" && testimonial_title_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = testimonial_title_type_font_weight && testimonial_title_type_font_weight !== "italic" && testimonial_title_type_font_weight !== "normal" ? testimonial_title_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = testimonial_title_type_font_weight && testimonial_title_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                           }
+                           // Testimonial Title
+                           if(testimonial_title){
+                             var testimonial_title_type_color = config.testimonial_title_typography.color,
+                                 testimonial_title_type_font_size = config.testimonial_title_typography["font-size"],
+                                 testimonial_title_type_line_height = config.testimonial_title_typography["line-height"],
+                                 testimonial_title_type_text_transform = config.testimonial_title_typography["text-transform"],
+                                 testimonial_title_type_letter_spacing = config.testimonial_title_typography["letter-spacing"],
+                                 testimonial_title_type_text_align = config.testimonial_title_typography["text-align"],
+                                 testimonial_title_type_mt = config.testimonial_title_typography["margin-top"],
+                                 testimonial_title_type_mr = config.testimonial_title_typography["margin-right"],
+                                 testimonial_title_type_mb = config.testimonial_title_typography["margin-bottom"],
+                                 testimonial_title_type_ml = config.testimonial_title_typography["margin-left"],
+                                 testimonial_title_type_font_weight = config.testimonial_title_typography["font-weight"];
+                             var font_normal = testimonial_title_type_font_weight && testimonial_title_type_font_weight !== "italic" && testimonial_title_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = testimonial_title_type_font_weight && testimonial_title_type_font_weight !== "italic" && testimonial_title_type_font_weight !== "normal" ? testimonial_title_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = testimonial_title_type_font_weight && testimonial_title_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-testimonial-title{
 margin: ${testimonial_title_type_mt}px ${testimonial_title_type_mr}px ${testimonial_title_type_mb}px ${testimonial_title_type_ml}px;
 }
@@ -1143,7 +1383,7 @@ padding: 0;
 margin:0;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-testimonial-title .sp-tpro-testimonial-title{
-color: ${testimonial_title_type_color};
+color: #444;
 font-size: ${testimonial_title_type_font_size}px;
 line-height: ${testimonial_title_type_line_height}px;
 text-transform: ${testimonial_title_type_text_transform};
@@ -1154,9 +1394,9 @@ padding: 0;
 margin:0;
 }
 `;
-                         if (testimonial_title_font_load) {
-                           var testimonial_title_type_font_family = config.testimonial_title_typography["font-family"];
-                           css += `
+                             if (testimonial_title_font_load) {
+                               var testimonial_title_type_font_family = config.testimonial_title_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-testimonial-title .sp-tpro-testimonial-title{
 font-family: ${testimonial_title_type_font_family};
 }
@@ -1164,25 +1404,25 @@ font-family: ${testimonial_title_type_font_family};
 font-family: ${testimonial_title_type_font_family};
 }
 `;
-                         }
-                       }
-                       // Testimonial Des Font
-                       if(testimonial_content){
-                         var testimonial_content_type_color = config.testimonial_text_typography.color,
-                             testimonial_content_type_font_size = config.testimonial_text_typography["font-size"],
-                             testimonial_content_type_line_height = config.testimonial_text_typography["line-height"],
-                             testimonial_content_type_text_transform = config.testimonial_text_typography["text-transform"],
-                             testimonial_content_type_letter_spacing = config.testimonial_text_typography["letter-spacing"],
-                             testimonial_content_type_text_align = config.testimonial_text_typography["text-align"],
-                             testimonial_title_type_mt = config.testimonial_text_typography["margin-top"],
-                             testimonial_title_type_mr = config.testimonial_text_typography["margin-right"],
-                             testimonial_title_type_mb = config.testimonial_text_typography["margin-bottom"],
-                             testimonial_title_type_ml = config.testimonial_text_typography["margin-left"],
-                             testimonial_content_type_font_weight = config.testimonial_text_typography["font-weight"];
-                         var font_normal = testimonial_content_type_font_weight && testimonial_content_type_font_weight !== "italic" && testimonial_content_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = testimonial_content_type_font_weight && testimonial_content_type_font_weight !== "italic" &&  testimonial_content_type_font_weight !== "normal" ? testimonial_content_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = testimonial_content_type_font_weight && testimonial_content_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                             }
+                           }
+                           // Testimonial Des Font
+                           if(testimonial_content){
+                             var testimonial_content_type_color = config.testimonial_text_typography.color,
+                                 testimonial_content_type_font_size = config.testimonial_text_typography["font-size"],
+                                 testimonial_content_type_line_height = config.testimonial_text_typography["line-height"],
+                                 testimonial_content_type_text_transform = config.testimonial_text_typography["text-transform"],
+                                 testimonial_content_type_letter_spacing = config.testimonial_text_typography["letter-spacing"],
+                                 testimonial_content_type_text_align = config.testimonial_text_typography["text-align"],
+                                 testimonial_title_type_mt = config.testimonial_text_typography["margin-top"],
+                                 testimonial_title_type_mr = config.testimonial_text_typography["margin-right"],
+                                 testimonial_title_type_mb = config.testimonial_text_typography["margin-bottom"],
+                                 testimonial_title_type_ml = config.testimonial_text_typography["margin-left"],
+                                 testimonial_content_type_font_weight = config.testimonial_text_typography["font-weight"];
+                             var font_normal = testimonial_content_type_font_weight && testimonial_content_type_font_weight !== "italic" && testimonial_content_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = testimonial_content_type_font_weight && testimonial_content_type_font_weight !== "italic" &&  testimonial_content_type_font_weight !== "normal" ? testimonial_content_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = testimonial_content_type_font_weight && testimonial_content_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-testimonial{
 color: ${testimonial_content_type_color};
 font-size: ${testimonial_content_type_font_size}px;
@@ -1196,7 +1436,7 @@ font-weight: ${font_weight};
 margin: ${testimonial_title_type_mt}px ${testimonial_title_type_mr}px ${testimonial_title_type_mb}px ${testimonial_title_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-testimonial{
-color: ${testimonial_content_type_color};
+color: #444;
 font-size: ${testimonial_content_type_font_size}px;
 line-height: ${testimonial_content_type_line_height}px;
 text-transform: ${testimonial_content_type_text_transform};
@@ -1209,9 +1449,9 @@ margin: ${testimonial_title_type_mt}px ${testimonial_title_type_mr}px ${testimon
 
 }
 `;
-                         if (testimonial_content_font_load) {
-                           var testimonial_content_type_font_family = config.testimonial_text_typography["font-family"];
-                           css += `
+                             if (testimonial_content_font_load) {
+                               var testimonial_content_type_font_family = config.testimonial_text_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-testimonial{
 font-family: ${testimonial_content_type_font_family};
 }
@@ -1219,9 +1459,9 @@ font-family: ${testimonial_content_type_font_family};
 font-family: ${testimonial_content_type_font_family};
 }
 `
-                         }
-                         if(testimonial_content_readmore){
-                           css += `
+                             }
+                             if(testimonial_content_readmore){
+                               css += `
 #sp-testimonial-pro-${id}.simesy-testimonial-pro-section a.tpro-read-more{
 color:${testimonial_content_readmore_color};
 }
@@ -1229,25 +1469,25 @@ color:${testimonial_content_readmore_color};
 color:${testimonial_content_readmore_hover};
 }
 `;
-                         }
-                       }
-                       // FullName Font
-                       if(testimonial_fullname){
-                         var fullname_type_color = config.client_name_typography.color,
-                             fullname_type_font_size = config.client_name_typography["font-size"],
-                             fullname_type_line_height = config.client_name_typography["line-height"],
-                             fullname_type_text_transform = config.client_name_typography["text-transform"],
-                             fullname_type_letter_spacing = config.client_name_typography["letter-spacing"],
-                             fullname_type_text_align = config.client_name_typography["text-align"],
-                             fullname_type_mt = config.client_name_typography["margin-top"],
-                             fullname_type_mr = config.client_name_typography["margin-right"],
-                             fullname_type_mb = config.client_name_typography["margin-bottom"],
-                             fullname_type_ml = config.client_name_typography["margin-left"],
-                             fullname_type_font_weight = config.client_name_typography["font-weight"];
-                         var font_normal = fullname_type_font_weight && fullname_type_font_weight !== "italic" && fullname_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = fullname_type_font_weight && fullname_type_font_weight !== "italic" &&  fullname_type_font_weight !== "normal" ? fullname_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = fullname_type_font_weight && fullname_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                             }
+                           }
+                           // FullName Font
+                           if(testimonial_fullname){
+                             var fullname_type_color = config.client_name_typography.color,
+                                 fullname_type_font_size = config.client_name_typography["font-size"],
+                                 fullname_type_line_height = config.client_name_typography["line-height"],
+                                 fullname_type_text_transform = config.client_name_typography["text-transform"],
+                                 fullname_type_letter_spacing = config.client_name_typography["letter-spacing"],
+                                 fullname_type_text_align = config.client_name_typography["text-align"],
+                                 fullname_type_mt = config.client_name_typography["margin-top"],
+                                 fullname_type_mr = config.client_name_typography["margin-right"],
+                                 fullname_type_mb = config.client_name_typography["margin-bottom"],
+                                 fullname_type_ml = config.client_name_typography["margin-left"],
+                                 fullname_type_font_weight = config.client_name_typography["font-weight"];
+                             var font_normal = fullname_type_font_weight && fullname_type_font_weight !== "italic" && fullname_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = fullname_type_font_weight && fullname_type_font_weight !== "italic" &&  fullname_type_font_weight !== "normal" ? fullname_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = fullname_type_font_weight && fullname_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-name{
 color: ${fullname_type_color};
 font-size: ${fullname_type_font_size}px;
@@ -1260,7 +1500,7 @@ font-weight: ${font_weight};
 margin: ${fullname_type_mt}px ${fullname_type_mr}px ${fullname_type_mb}px ${fullname_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-name{
-color: ${fullname_type_color};
+color: #444;
 font-size: ${fullname_type_font_size}px;
 line-height: ${fullname_type_line_height}px;
 text-transform: ${fullname_type_text_transform};
@@ -1270,9 +1510,9 @@ font-weight: ${font_weight};
 margin: ${fullname_type_mt}px ${fullname_type_mr}px ${fullname_type_mb}px ${fullname_type_ml}px;
 }
 `;
-                         if (fullname_font_load) {
-                           var fullname_type_font_family = config.client_name_typography["font-family"];
-                           css += `
+                             if (fullname_font_load) {
+                               var fullname_type_font_family = config.client_name_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-name{
 font-family: ${fullname_type_font_family};
 }
@@ -1280,46 +1520,43 @@ font-family: ${fullname_type_font_family};
 font-family: ${fullname_type_font_family};
 }
 `;
-                         }
-                       }
+                             }
+                           }
 
-                       // Rate Icon
-                       if(testimonial_client_rating){
-                         var testimonial_client_rating_color = config.testimonial_client_rating_color,
-                             testimonial_client_rating_alignment = config.testimonial_client_rating_alignment,
-                             testimonial_client_rating_margin_top = config.testimonial_client_rating_margin.top != "" ? config.testimonial_client_rating_margin.top : "0",
-                             testimonial_client_rating_margin_right = config.testimonial_client_rating_margin.right != "" ? config.testimonial_client_rating_margin.right : "0",
-                             testimonial_client_rating_margin_bottom = config.testimonial_client_rating_margin.bottom != "" ? config.testimonial_client_rating_margin.bottom : "0",
-                             testimonial_client_rating_margin_left = config.testimonial_client_rating_margin.left != "" ? config.testimonial_client_rating_margin.left : "0";
-                         css += `
+                           // Rate Icon
+                           if(testimonial_client_rating){
+                             var testimonial_client_rating_color = config.testimonial_client_rating_color,
+                                 testimonial_client_rating_alignment = config.testimonial_client_rating_alignment,
+                                 testimonial_client_rating_margin_top = config.testimonial_client_rating_margin.top != "" ? config.testimonial_client_rating_margin.top : "0",
+                                 testimonial_client_rating_margin_right = config.testimonial_client_rating_margin.right != "" ? config.testimonial_client_rating_margin.right : "0",
+                                 testimonial_client_rating_margin_bottom = config.testimonial_client_rating_margin.bottom != "" ? config.testimonial_client_rating_margin.bottom : "0",
+                                 testimonial_client_rating_margin_left = config.testimonial_client_rating_margin.left != "" ? config.testimonial_client_rating_margin.left : "0";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-rating{
 margin: ${testimonial_client_rating_margin_top}px ${testimonial_client_rating_margin_right}px ${testimonial_client_rating_margin_bottom}px ${testimonial_client_rating_margin_left}px;
 text-align: ${testimonial_client_rating_alignment};
 color: ${testimonial_client_rating_color};
 }
-.simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-rating{
-margin: ${testimonial_client_rating_margin_top}px ${testimonial_client_rating_margin_right}px ${testimonial_client_rating_margin_bottom}px ${testimonial_client_rating_margin_left}px;
-color: ${testimonial_client_rating_color};
-}
+
 `;
-                       }
-                       // Company Font
-                       if(client_designation || client_company_name){
-                         var company_type_color = config.client_designation_company_typography.color,
-                             company_type_font_size = config.client_designation_company_typography["font-size"],
-                             company_type_line_height = config.client_designation_company_typography["line-height"],
-                             company_type_text_transform = config.client_designation_company_typography["text-transform"],
-                             company_type_letter_spacing = config.client_designation_company_typography["letter-spacing"],
-                             company_type_text_align = config.client_designation_company_typography["text-align"],
-                             company_type_mt = config.client_designation_company_typography["margin-top"],
-                             company_type_mr = config.client_designation_company_typography["margin-right"],
-                             company_type_mb = config.client_designation_company_typography["margin-bottom"],
-                             company_type_ml = config.client_designation_company_typography["margin-left"],
-                             company_type_font_weight = config.client_designation_company_typography["font-weight"];
-                         var font_normal = company_type_font_weight && company_type_font_weight !== "italic" && company_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = company_type_font_weight && company_type_font_weight !== "italic" &&  company_type_font_weight !== "normal" ? company_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = company_type_font_weight && company_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                           }
+                           // Company Font
+                           if(client_designation || client_company_name){
+                             var company_type_color = config.client_designation_company_typography.color,
+                                 company_type_font_size = config.client_designation_company_typography["font-size"],
+                                 company_type_line_height = config.client_designation_company_typography["line-height"],
+                                 company_type_text_transform = config.client_designation_company_typography["text-transform"],
+                                 company_type_letter_spacing = config.client_designation_company_typography["letter-spacing"],
+                                 company_type_text_align = config.client_designation_company_typography["text-align"],
+                                 company_type_mt = config.client_designation_company_typography["margin-top"],
+                                 company_type_mr = config.client_designation_company_typography["margin-right"],
+                                 company_type_mb = config.client_designation_company_typography["margin-bottom"],
+                                 company_type_ml = config.client_designation_company_typography["margin-left"],
+                                 company_type_font_weight = config.client_designation_company_typography["font-weight"];
+                             var font_normal = company_type_font_weight && company_type_font_weight !== "italic" && company_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = company_type_font_weight && company_type_font_weight !== "italic" &&  company_type_font_weight !== "normal" ? company_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = company_type_font_weight && company_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-designation-company{
 color: ${company_type_color};
 font-size: ${company_type_font_size}px;
@@ -1332,7 +1569,7 @@ font-weight: ${font_weight};
 margin: ${company_type_mt}px ${company_type_mr}px ${company_type_mb}px ${company_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-designation-company{
-color: ${company_type_color};
+color: #444;
 font-size: ${company_type_font_size}px;
 line-height: ${company_type_line_height}px;
 text-transform: ${company_type_text_transform};
@@ -1344,9 +1581,9 @@ margin: ${company_type_mt}px ${company_type_mr}px ${company_type_mb}px ${company
 `;        
 
 
-                         if (company_font_load) {
-                           var company_type_font_family = config.client_designation_company_typography["font-family"];
-                           css += `
+                             if (company_font_load) {
+                               var company_type_font_family = config.client_designation_company_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-designation-company{
 font-family: ${company_type_font_family};
 }
@@ -1354,25 +1591,25 @@ font-family: ${company_type_font_family};
 font-family: ${company_type_font_family};
 }
 `;
-                         }
-                       }
-                       // Location Font
-                       if(testimonial_client_location){
-                         var location_type_color = config.client_location_typography.color,
-                             location_type_font_size = config.client_location_typography["font-size"],
-                             location_type_line_height = config.client_location_typography["line-height"],
-                             location_type_text_transform = config.client_location_typography["text-transform"],
-                             location_type_letter_spacing = config.client_location_typography["letter-spacing"],
-                             location_type_text_align = config.client_location_typography["text-align"],
-                             location_type_mt = config.client_location_typography["margin-top"],
-                             location_type_mr = config.client_location_typography["margin-right"],
-                             location_type_mb = config.client_location_typography["margin-bottom"],
-                             location_type_ml = config.client_location_typography["margin-left"],
-                             location_type_font_weight = config.client_location_typography["font-weight"];
-                         var font_normal = location_type_font_weight && location_type_font_weight !== "italic" && location_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = location_type_font_weight && location_type_font_weight !== "italic" &&  location_type_font_weight !== "normal" ? location_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = location_type_font_weight && location_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                             }
+                           }
+                           // Location Font
+                           if(testimonial_client_location){
+                             var location_type_color = config.client_location_typography.color,
+                                 location_type_font_size = config.client_location_typography["font-size"],
+                                 location_type_line_height = config.client_location_typography["line-height"],
+                                 location_type_text_transform = config.client_location_typography["text-transform"],
+                                 location_type_letter_spacing = config.client_location_typography["letter-spacing"],
+                                 location_type_text_align = config.client_location_typography["text-align"],
+                                 location_type_mt = config.client_location_typography["margin-top"],
+                                 location_type_mr = config.client_location_typography["margin-right"],
+                                 location_type_mb = config.client_location_typography["margin-bottom"],
+                                 location_type_ml = config.client_location_typography["margin-left"],
+                                 location_type_font_weight = config.client_location_typography["font-weight"];
+                             var font_normal = location_type_font_weight && location_type_font_weight !== "italic" && location_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = location_type_font_weight && location_type_font_weight !== "italic" &&  location_type_font_weight !== "normal" ? location_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = location_type_font_weight && location_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-location{
 color: ${location_type_color};
 font-size: ${location_type_font_size}px;
@@ -1385,7 +1622,7 @@ font-weight: ${font_weight};
 margin: ${location_type_mt}px ${location_type_mr}px ${location_type_mb}px ${location_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-location{
-color: ${location_type_color};
+color: #444;
 font-size: ${location_type_font_size}px;
 line-height: ${location_type_line_height}px;
 text-transform: ${location_type_text_transform};
@@ -1395,9 +1632,9 @@ font-weight: ${font_weight};
 margin: ${location_type_mt}px ${location_type_mr}px ${location_type_mb}px ${location_type_ml}px;
 }
 `;
-                         if (location_font_load) {
-                           var location_type_font_family = config.client_location_typography["font-family"];
-                           css += `
+                             if (location_font_load) {
+                               var location_type_font_family = config.client_location_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-location{
 font-family: ${location_type_font_family};
 }
@@ -1405,25 +1642,25 @@ font-family: ${location_type_font_family};
 font-family: ${location_type_font_family};
 }
 `
-                         }
-                       }
-                       // Phone Font
-                       if(testimonial_client_phone){
-                         var phone_type_color = config.client_phone_typography.color,
-                             phone_type_font_size = config.client_phone_typography["font-size"],
-                             phone_type_line_height = config.client_phone_typography["line-height"],
-                             phone_type_text_transform = config.client_phone_typography["text-transform"],
-                             phone_type_letter_spacing = config.client_phone_typography["letter-spacing"],
-                             phone_type_text_align = config.client_phone_typography["text-align"],
-                             phone_type_mt = config.client_phone_typography["margin-top"],
-                             phone_type_mr = config.client_phone_typography["margin-right"],
-                             phone_type_mb = config.client_phone_typography["margin-bottom"],
-                             phone_type_ml = config.client_phone_typography["margin-left"],
-                             phone_type_font_weight = config.client_phone_typography["font-weight"];
-                         var font_normal = phone_type_font_weight && phone_type_font_weight !== "italic" && phone_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = phone_type_font_weight && phone_type_font_weight !== "italic" &&  phone_type_font_weight !== "normal" ? phone_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = phone_type_font_weight && phone_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                             }
+                           }
+                           // Phone Font
+                           if(testimonial_client_phone){
+                             var phone_type_color = config.client_phone_typography.color,
+                                 phone_type_font_size = config.client_phone_typography["font-size"],
+                                 phone_type_line_height = config.client_phone_typography["line-height"],
+                                 phone_type_text_transform = config.client_phone_typography["text-transform"],
+                                 phone_type_letter_spacing = config.client_phone_typography["letter-spacing"],
+                                 phone_type_text_align = config.client_phone_typography["text-align"],
+                                 phone_type_mt = config.client_phone_typography["margin-top"],
+                                 phone_type_mr = config.client_phone_typography["margin-right"],
+                                 phone_type_mb = config.client_phone_typography["margin-bottom"],
+                                 phone_type_ml = config.client_phone_typography["margin-left"],
+                                 phone_type_font_weight = config.client_phone_typography["font-weight"];
+                             var font_normal = phone_type_font_weight && phone_type_font_weight !== "italic" && phone_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = phone_type_font_weight && phone_type_font_weight !== "italic" &&  phone_type_font_weight !== "normal" ? phone_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = phone_type_font_weight && phone_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-phone{
 color: ${phone_type_color};
 font-size: ${phone_type_font_size}px;
@@ -1436,7 +1673,7 @@ font-weight: ${font_weight};
 margin: ${phone_type_mt}px ${phone_type_mr}px ${phone_type_mb}px ${phone_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-phone{
-color: ${phone_type_color};
+color: #444;
 font-size: ${phone_type_font_size}px;
 line-height: ${phone_type_line_height}px;
 text-transform: ${phone_type_text_transform};
@@ -1446,9 +1683,9 @@ font-weight: ${font_weight};
 margin: ${phone_type_mt}px ${phone_type_mr}px ${phone_type_mb}px ${phone_type_ml}px;
 }
 `;
-                         if (phone_font_load) {
-                           var phone_type_font_family = config.client_phone_typography["font-family"];
-                           css += `
+                             if (phone_font_load) {
+                               var phone_type_font_family = config.client_phone_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-phone{
 font-family: ${phone_type_font_family};
 }
@@ -1456,26 +1693,26 @@ font-family: ${phone_type_font_family};
 font-family: ${phone_type_font_family};
 }
 `
-                         }
-                       }
+                             }
+                           }
 
-                       // Email Font
-                       if(testimonial_client_email){
-                         var email_type_color = config.client_email_typography.color,
-                             email_type_font_size = config.client_email_typography["font-size"],
-                             email_type_line_height = config.client_email_typography["line-height"],
-                             email_type_text_transform = config.client_email_typography["text-transform"],
-                             email_type_letter_spacing = config.client_email_typography["letter-spacing"],
-                             email_type_text_align = config.client_email_typography["text-align"],
-                             email_type_mt = config.client_email_typography["margin-top"],
-                             email_type_mr = config.client_email_typography["margin-right"],
-                             email_type_mb = config.client_email_typography["margin-bottom"],
-                             email_type_ml = config.client_email_typography["margin-left"],
-                             email_type_font_weight = config.client_email_typography["font-weight"];
-                         var font_normal = email_type_font_weight && email_type_font_weight !== "italic" && email_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = email_type_font_weight && email_type_font_weight !== "italic" &&  email_type_font_weight !== "normal" ? email_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = email_type_font_weight && email_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                           // Email Font
+                           if(testimonial_client_email){
+                             var email_type_color = config.client_email_typography.color,
+                                 email_type_font_size = config.client_email_typography["font-size"],
+                                 email_type_line_height = config.client_email_typography["line-height"],
+                                 email_type_text_transform = config.client_email_typography["text-transform"],
+                                 email_type_letter_spacing = config.client_email_typography["letter-spacing"],
+                                 email_type_text_align = config.client_email_typography["text-align"],
+                                 email_type_mt = config.client_email_typography["margin-top"],
+                                 email_type_mr = config.client_email_typography["margin-right"],
+                                 email_type_mb = config.client_email_typography["margin-bottom"],
+                                 email_type_ml = config.client_email_typography["margin-left"],
+                                 email_type_font_weight = config.client_email_typography["font-weight"];
+                             var font_normal = email_type_font_weight && email_type_font_weight !== "italic" && email_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = email_type_font_weight && email_type_font_weight !== "italic" &&  email_type_font_weight !== "normal" ? email_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = email_type_font_weight && email_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-email{
 color: ${email_type_color};
 font-size: ${email_type_font_size}px;
@@ -1488,7 +1725,7 @@ font-weight: ${font_weight};
 margin: ${email_type_mt}px ${email_type_mr}px ${email_type_mb}px ${email_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-email{
-color: ${email_type_color};
+color: #444;
 font-size: ${email_type_font_size}px;
 line-height: ${email_type_line_height}px;
 text-transform: ${email_type_text_transform};
@@ -1498,9 +1735,9 @@ font-weight: ${font_weight};
 margin: ${email_type_mt}px ${email_type_mr}px ${email_type_mb}px ${email_type_ml}px;
 }
 `;
-                         if (email_font_load) {
-                           var email_type_font_family = config.client_email_typography["font-family"];
-                           css += `
+                             if (email_font_load) {
+                               var email_type_font_family = config.client_email_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-email{
 font-family: ${email_type_font_family};
 }
@@ -1508,26 +1745,26 @@ font-family: ${email_type_font_family};
 font-family: ${email_type_font_family};
 }
 `
-                         }
-                       }
+                             }
+                           }
 
-                       // Date Font
-                       if(testimonial_client_date){
-                         var date_type_color = config.testimonial_date_typography.color,
-                             date_type_font_size = config.testimonial_date_typography["font-size"],
-                             date_type_line_height = config.testimonial_date_typography["line-height"],
-                             date_type_text_transform = config.testimonial_date_typography["text-transform"],
-                             date_type_letter_spacing = config.testimonial_date_typography["letter-spacing"],
-                             date_type_text_align = config.testimonial_date_typography["text-align"],
-                             date_type_mt = config.testimonial_date_typography["margin-top"],
-                             date_type_mr = config.testimonial_date_typography["margin-right"],
-                             date_type_mb = config.testimonial_date_typography["margin-bottom"],
-                             date_type_ml = config.testimonial_date_typography["margin-left"],
-                             date_type_font_weight = config.testimonial_date_typography["font-weight"];
-                         var font_normal = date_type_font_weight && date_type_font_weight !== "italic" && date_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = date_type_font_weight && date_type_font_weight !== "italic" &&  date_type_font_weight !== "normal" ? date_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = date_type_font_weight && date_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                           // Date Font
+                           if(testimonial_client_date){
+                             var date_type_color = config.testimonial_date_typography.color,
+                                 date_type_font_size = config.testimonial_date_typography["font-size"],
+                                 date_type_line_height = config.testimonial_date_typography["line-height"],
+                                 date_type_text_transform = config.testimonial_date_typography["text-transform"],
+                                 date_type_letter_spacing = config.testimonial_date_typography["letter-spacing"],
+                                 date_type_text_align = config.testimonial_date_typography["text-align"],
+                                 date_type_mt = config.testimonial_date_typography["margin-top"],
+                                 date_type_mr = config.testimonial_date_typography["margin-right"],
+                                 date_type_mb = config.testimonial_date_typography["margin-bottom"],
+                                 date_type_ml = config.testimonial_date_typography["margin-left"],
+                                 date_type_font_weight = config.testimonial_date_typography["font-weight"];
+                             var font_normal = date_type_font_weight && date_type_font_weight !== "italic" && date_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = date_type_font_weight && date_type_font_weight !== "italic" &&  date_type_font_weight !== "normal" ? date_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = date_type_font_weight && date_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-date{
 color: ${date_type_color};
 font-size: ${date_type_font_size}px;
@@ -1540,7 +1777,7 @@ font-weight: ${font_weight};
 margin: ${date_type_mt}px ${date_type_mr}px ${date_type_mb}px ${date_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-date{
-color: ${date_type_color};
+color: #444;
 font-size: ${date_type_font_size}px;
 line-height: ${date_type_line_height}px;
 text-transform: ${date_type_text_transform};
@@ -1551,9 +1788,9 @@ margin: ${date_type_mt}px ${date_type_mr}px ${date_type_mb}px ${date_type_ml}px;
 }
 
 `;
-                         if (date_font_load) {
-                           var date_type_font_family = config.testimonial_date_typography["font-family"];
-                           css += `
+                             if (date_font_load) {
+                               var date_type_font_family = config.testimonial_date_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-date{
 font-family: ${date_type_font_family};
 }
@@ -1561,26 +1798,26 @@ font-family: ${date_type_font_family};
 font-family: ${date_type_font_family};
 }
 `
-                         }
-                       }
-                       // Website Font
-                       if(testimonial_client_website){
-                         var website_type_color = config.client_website_typography.color,
-                             website_type_font_size = config.client_website_typography["font-size"],
-                             website_type_line_height = config.client_website_typography["line-height"],
-                             website_type_text_transform = config.client_website_typography["text-transform"],
-                             website_type_letter_spacing = config.client_website_typography["letter-spacing"],
-                             website_type_text_align = config.client_website_typography["text-align"],
-                             website_type_mt = config.client_website_typography["margin-top"],
-                             website_type_mr = config.client_website_typography["margin-right"],
-                             website_type_mb = config.client_website_typography["margin-bottom"],
-                             website_type_ml = config.client_website_typography["margin-left"],
-                             website_type_font_weight = config.client_website_typography["font-weight"];
+                             }
+                           }
+                           // Website Font
+                           if(testimonial_client_website){
+                             var website_type_color = config.client_website_typography.color,
+                                 website_type_font_size = config.client_website_typography["font-size"],
+                                 website_type_line_height = config.client_website_typography["line-height"],
+                                 website_type_text_transform = config.client_website_typography["text-transform"],
+                                 website_type_letter_spacing = config.client_website_typography["letter-spacing"],
+                                 website_type_text_align = config.client_website_typography["text-align"],
+                                 website_type_mt = config.client_website_typography["margin-top"],
+                                 website_type_mr = config.client_website_typography["margin-right"],
+                                 website_type_mb = config.client_website_typography["margin-bottom"],
+                                 website_type_ml = config.client_website_typography["margin-left"],
+                                 website_type_font_weight = config.client_website_typography["font-weight"];
 
-                         var font_normal = website_type_font_weight && website_type_font_weight !== "italic" && website_type_font_weight === "normal" ? "normal" : "";
-                         var font_weight = website_type_font_weight && website_type_font_weight !== "italic" &&  website_type_font_weight !== "normal" ? website_type_font_weight.replace("italic", "") : font_normal;
-                         var font_style = website_type_font_weight && website_type_font_weight.substr(-6) === "italic" ? "italic" : "";
-                         css += `
+                             var font_normal = website_type_font_weight && website_type_font_weight !== "italic" && website_type_font_weight === "normal" ? "normal" : "";
+                             var font_weight = website_type_font_weight && website_type_font_weight !== "italic" &&  website_type_font_weight !== "normal" ? website_type_font_weight.replace("italic", "") : font_normal;
+                             var font_style = website_type_font_weight && website_type_font_weight.substr(-6) === "italic" ? "italic" : "";
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-website{
 color: ${website_type_color};
 font-size: ${website_type_font_size}px;
@@ -1593,7 +1830,7 @@ font-weight: ${font_weight};
 margin: ${website_type_mt}px ${website_type_mr}px ${website_type_mb}px ${website_type_ml}px;
 }
 .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-client-website{
-color: ${website_type_color};
+color: #444;
 font-size: ${website_type_font_size}px;
 line-height: ${website_type_line_height}px;
 text-transform: ${website_type_text_transform};
@@ -1603,9 +1840,9 @@ font-weight: ${font_weight};
 margin: ${website_type_mt}px ${website_type_mr}px ${website_type_mb}px ${website_type_ml}px;
 }
 `;
-                         if (website_font_load) {
-                           var website_type_font_family = config.client_website_typography["font-family"];
-                           css += `
+                             if (website_font_load) {
+                               var website_type_font_family = config.client_website_typography["font-family"];
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-website{
 font-family: ${website_type_font_family};
 }
@@ -1613,25 +1850,25 @@ font-family: ${website_type_font_family};
 font-family: ${website_type_font_family};
 }
 `
-                         }
-                       }
-                       //Naviagtion
-                       if (nav_desktop == "true" || nav_mobile == "true") {
-                         var nav_color = config.navigation_color.color != '' ? config.navigation_color.color : '',
-                             nav_size = config.navigation_icon_size != '' ? config.navigation_icon_size : '20',
-                             nav_bg = config.navigation_color.background != '' ? config.navigation_color.background : '',
-                             nav_border = config.navigation_color.border != '' ? config.navigation_color.border : '',
-                             nav_color_hover = config.navigation_color.hover_color != '' ? config.navigation_color.hover_color : '',
-                             nav_border_hover = config.navigation_color.hover_border != '' ? config.navigation_color.hover_border : '',
-                             nav_bg_hover = config.navigation_color.hover_background != '' ? config.navigation_color.hover_background : '',
-                             line_height = 32 - (parseInt(config.navigation_border.all) * 2),
-                             nav_border_all = config.navigation_border.all != '' ? config.navigation_border.all : '',
-                             nav_border_style = config.navigation_border.style,
-                             nav_border_color = config.navigation_border.color != '' ? config.navigation_border.color : '',
-                             nav_border_hover_color = config.navigation_border.hover_color != '' ? config.navigation_border.hover_color : '',
-                             nav_border_radius = config.navigation_border_radius.all != '' ? config.navigation_border_radius.all : '0',
-                             nav_border_unit = config.navigation_border_radius.unit != '' ? config.navigation_border_radius.unit : 'px';
-                         css += `
+                             }
+                           }
+                           //Naviagtion
+                           if (nav_desktop == "true" || nav_mobile == "true") {
+                             var nav_color = config.navigation_color.color != '' ? config.navigation_color.color : '',
+                                 nav_size = config.navigation_icon_size != '' ? config.navigation_icon_size : '20',
+                                 nav_bg = config.navigation_color.background != '' ? config.navigation_color.background : '',
+                                 nav_border = config.navigation_color.border != '' ? config.navigation_color.border : '',
+                                 nav_color_hover = config.navigation_color.hover_color != '' ? config.navigation_color.hover_color : '',
+                                 nav_border_hover = config.navigation_color.hover_border != '' ? config.navigation_color.hover_border : '',
+                                 nav_bg_hover = config.navigation_color.hover_background != '' ? config.navigation_color.hover_background : '',
+                                 line_height = 32 - (parseInt(config.navigation_border.all) * 2),
+                                 nav_border_all = config.navigation_border.all != '' ? config.navigation_border.all : '',
+                                 nav_border_style = config.navigation_border.style,
+                                 nav_border_color = config.navigation_border.color != '' ? config.navigation_border.color : '',
+                                 nav_border_hover_color = config.navigation_border.hover_color != '' ? config.navigation_border.hover_color : '',
+                                 nav_border_radius = config.navigation_border_radius.all != '' ? config.navigation_border_radius.all : '0',
+                                 nav_border_unit = config.navigation_border_radius.unit != '' ? config.navigation_border_radius.unit : 'px';
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .slick-prev,
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .slick-next{
 background: ${nav_bg};
@@ -1648,39 +1885,39 @@ color: ${nav_color_hover};
 border-color: ${nav_border_hover_color};
 }
 `;
-                         if ( layout_present == 'slider' && nav_all == 'true' || layout_present == 'slider' && nav_mobile == 'true' ) {
-                           if ( section_title ) {
-                             if ( navigation_position == 'top_right' || navigation_position == 'top_center' || navigation_position == 'top_left' ) {
-                               css += `
+                             if ( layout_present == 'slider' && nav_desktop == 'true' || layout_present == 'slider' && nav_all == 'true' || layout_present == 'slider' && nav_mobile == 'true' ) {
+                               if ( section_title ) {
+                                 if ( navigation_position == 'top_right' || navigation_position == 'top_center' || navigation_position == 'top_left' ) {
+                                   css += `
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_right,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_center,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_left{
 padding-top: 44px;
 }`;
-                             }
-                           }
-                           else{
-                             if ( navigation_position == 'top_right' || navigation_position == 'top_center' || navigation_position == 'top_left' ) {
-                               css += `
+                                 }
+                               }
+                               else{
+                                 if ( navigation_position == 'top_right' || navigation_position == 'top_center' || navigation_position == 'top_left' ) {
+                                   css += `
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_right,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_center,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_left{
 padding-top: 46px;
 }`;
-                             }
-                           }
-                           if ( navigation_position == 'bottom_right' || navigation_position == 'bottom_center' || navigation_position == 'bottom_left'){
-                             css += `
+                                 }
+                               }
+                               if ( navigation_position == 'bottom_right' || navigation_position == 'bottom_center' || navigation_position == 'bottom_left'){
+                                 css += `
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_bottom_right,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_bottom_center,
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_bottom_left{
 padding-bottom: 46px;
 }
 `;
-                           }
-                           if ( navigation_position == 'top_right'){
-                             var nav_margin_right = parseInt(testimonial_margin) + 38;
-                             css += `
+                               }
+                               if ( navigation_position == 'top_right'){
+                                 var nav_margin_right = parseInt(testimonial_margin) + 38;
+                                 css += `
 #sp-testimonial-pro-wrapper-${id}.sp_tpro_nav_position_top_right .slick-next{
 right: ${testimonial_margin}px
 }
@@ -1688,21 +1925,21 @@ right: ${testimonial_margin}px
 right: ${nav_margin_right}px
 }
 `;
-                           }
-                           if ( navigation_position == 'bottom_right' ) {
-                             var nav_margin_right = parseInt(testimonial_margin) + 38;
-                             css += `
-#simesy-testimonial-pro-${id} .slick-next{
+                               }
+                               if ( navigation_position == 'bottom_right' ) {
+                                 var nav_margin_right = parseInt(testimonial_margin) + 38;
+                                 css += `
+#sp-testimonial-pro-wrapper-${id} .slick-next{
 right: ${testimonial_margin}px
 }
-#simesy-testimonial-pro-${id} .slick-prev{
+#sp-testimonial-pro-wrapper-${id} .slick-prev{
 right: ${nav_margin_right}px
 }
 `;
-                           }
-                           if(config.slider_mode[0] == 'standard'){
-                             if ( navigation_position == 'vertical_center' ) {
-                               css += `
+                               }
+                               if(config.slider_mode[0] == 'standard'){
+                                 if ( navigation_position == 'vertical_center' ) {
+                                   css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section{
 padding: 0 60px;
 }
@@ -1712,12 +1949,13 @@ padding: 0 30px;
 }
 }
 `;
-                             }
+                                 }
 
-                           }
-                           if ( navigation_position == 'vertical_center' || navigation_position == 'vertical_center_inner' ) {
+                               }
 
-                             css += `
+                               if ( navigation_position == 'vertical_center' || navigation_position == 'vertical_center_inner' ) {
+
+                                 css += `
 #simesy-testimonial-pro-${id} .slick-next {
 right:${testimonial_margin}px;
 }
@@ -1725,9 +1963,9 @@ right:${testimonial_margin}px;
 left:0;
 }
 `;
-                           }
-                           if ( navigation_position == 'vertical_center_inner_hover' ) {
-                             css += `
+                               }
+                               if ( navigation_position == 'vertical_center_inner_hover' ) {
+                                 css += `
 #simesy-testimonial-pro-${id}:hover .slick-next{
 right:${testimonial_margin}px;
 }
@@ -1735,18 +1973,18 @@ right:${testimonial_margin}px;
 left:0;
 }
 `;
+                               }
+                             }
                            }
-                         }
-                       }
-                       //Pagination
-                       if ( pagi_desktop == "true" || pagi_mobile == "true") {
-                         var pagination_color = config.pagination_colors.color != '' ? config.pagination_colors.color : '',
-                             pagination_active_color = config.pagination_colors.active_background != '' ? config.pagination_colors.active_background : '',
-                             pagination_margin_top = config.pagination_margin.top,
-                             pagination_margin_right = config.pagination_margin.right,
-                             pagination_margin_bottom = config.pagination_margin.bottom,
-                             pagination_margin_left = config.pagination_margin.left;
-                         css += `
+                           //Pagination
+                           if ( pagi_desktop == "true" || pagi_mobile == "true") {
+                             var pagination_color = config.pagination_colors.color != '' ? config.pagination_colors.color : '',
+                                 pagination_active_color = config.pagination_colors.active_background != '' ? config.pagination_colors.active_background : '',
+                                 pagination_margin_top = config.pagination_margin.top,
+                                 pagination_margin_right = config.pagination_margin.right,
+                                 pagination_margin_bottom = config.pagination_margin.bottom,
+                                 pagination_margin_left = config.pagination_margin.left;
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .slick-dots{
 margin: ${pagination_margin_top}px ${pagination_margin_right}px ${pagination_margin_bottom}px ${pagination_margin_left}px;
 }#simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .slick-dots li button{
@@ -1756,19 +1994,19 @@ background: ${pagination_color};
 background: ${pagination_active_color};
 }
 `;
-                       }
-                       if ( layout_present == 'grid' || layout_present == 'masonry' || layout_present == 'list' ) {
-                         if(config.grid_pagination){
-                           var grid_pagination_colors_color = config.grid_pagination_colors.color != '' ? config.grid_pagination_colors.color : '';
-                           var grid_pagination_colors_background = config.grid_pagination_colors.background != '' ? config.grid_pagination_colors.background : '';
-                           var grid_pagination_colors_hover_color = config.grid_pagination_colors.hover_color != '' ? config.grid_pagination_colors.color : '';
-                           var grid_pagination_colors_hover_background = config.grid_pagination_colors.hover_background != '' ? config.grid_pagination_colors.background : '';
+                           }
+                           if ( layout_present == 'grid' || layout_present == 'masonry' || layout_present == 'list' ) {
+                             if(config.grid_pagination){
+                               var grid_pagination_colors_color = config.grid_pagination_colors.color != '' ? config.grid_pagination_colors.color : '';
+                               var grid_pagination_colors_background = config.grid_pagination_colors.background != '' ? config.grid_pagination_colors.background : '';
+                               var grid_pagination_colors_hover_color = config.grid_pagination_colors.hover_color != '' ? config.grid_pagination_colors.color : '';
+                               var grid_pagination_colors_hover_background = config.grid_pagination_colors.hover_background != '' ? config.grid_pagination_colors.background : '';
 
-                           var grid_pagination_border_all = config.grid_pagination_border.all != '' ? config.grid_pagination_border.all : '';
-                           var grid_pagination_border_style = config.grid_pagination_border.style;
-                           var grid_pagination_border_color = config.grid_pagination_border.color != '' ? config.grid_pagination_border.color : '';
-                           var grid_pagination_border_hover_color = config.grid_pagination_border.hover_color != '' ? config.grid_pagination_border.hover_color : '';
-                           css += `
+                               var grid_pagination_border_all = config.grid_pagination_border.all != '' ? config.grid_pagination_border.all : '';
+                               var grid_pagination_border_style = config.grid_pagination_border.style;
+                               var grid_pagination_border_color = config.grid_pagination_border.color != '' ? config.grid_pagination_border.color : '';
+                               var grid_pagination_border_hover_color = config.grid_pagination_border.hover_color != '' ? config.grid_pagination_border.hover_color : '';
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .page-load-status,
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-items-load-more,
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-tpro-pagination-area {
@@ -1793,34 +2031,34 @@ color:${grid_pagination_colors_hover_color};
 border-color: ${grid_pagination_border_hover_color};
 }
 `;
-                           if(config.grid_pagination_alignment[0] == 'right'){
-                             css += `
+                               if(config.grid_pagination_alignment[0] == 'right'){
+                                 css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section ul.simesy-tpro-pagination{
 padding-right:${testimonial_margin }px
 }
 `;
+                               }
+                             }
                            }
-                         }
-                       }
-                       if(social_profile){
-                         var social_profile_margin_top = config.social_profile_margin.top,
-                             social_profile_margin_right = config.social_profile_margin.right,
-                             social_profile_margin_bottom = config.social_profile_margin.bottom,
-                             social_profile_margin_left = config.social_profile_margin.left,
-                             social_profile_position = config.social_profile_position[0],
-                             social_icon_border_radius = config.social_icon_border_radius.all,
-                             social_icon_border_unit = config.social_icon_border_radius.unit,
-                             social_icon_custom_color = config.social_icon_custom_color,
-                             social_icon_color_color = config.social_icon_color.color,
-                             social_icon_color_bg = config.social_icon_color.background,
-                             social_icon_color_color_hover = config.social_icon_color.hover_color,
-                             social_icon_color_bg_hover = config.social_icon_color.hover_background,
+                           if(social_profile){
+                             var social_profile_margin_top = config.social_profile_margin.top,
+                                 social_profile_margin_right = config.social_profile_margin.right,
+                                 social_profile_margin_bottom = config.social_profile_margin.bottom,
+                                 social_profile_margin_left = config.social_profile_margin.left,
+                                 social_profile_position = config.social_profile_position[0],
+                                 social_icon_border_radius = config.social_icon_border_radius.all,
+                                 social_icon_border_unit = config.social_icon_border_radius.unit,
+                                 social_icon_custom_color = config.social_icon_custom_color,
+                                 social_icon_color_color = config.social_icon_color.color,
+                                 social_icon_color_bg = config.social_icon_color.background,
+                                 social_icon_color_color_hover = config.social_icon_color.hover_color,
+                                 social_icon_color_bg_hover = config.social_icon_color.hover_background,
 
-                             social_icon_border_all = config.social_icon_border.all,
-                             social_icon_border_style = config.social_icon_border.style,
-                             social_icon_border_color= config.social_icon_border.color,
-                             social_icon_border_color_hv = config.social_icon_border.hover_color;
-                         css += `
+                                 social_icon_border_all = config.social_icon_border.all,
+                                 social_icon_border_style = config.social_icon_border.style,
+                                 social_icon_border_color= config.social_icon_border.color,
+                                 social_icon_border_color_hv = config.social_icon_border.hover_color;
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile{
 text-align:${social_profile_position};
 }
@@ -1829,99 +2067,112 @@ text-align:${social_profile_position};
 margin: ${social_profile_margin_top}px ${social_profile_margin_right}px ${social_profile_margin_bottom}px ${social_profile_margin_left}px
 }
 `;
-                         css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a, .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-social-profile a{
+                             css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a{
 -webkit-border-radius: ${social_icon_border_radius}${social_icon_border_unit};
 -moz-border-radius: ${social_icon_border_radius}${social_icon_border_unit};
 border-radius: ${social_icon_border_radius}${social_icon_border_unit};
-}`
-                         if(social_icon_custom_color){
-                           css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a, .simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-social-profile a{
+}
+`
+                             if(social_icon_custom_color){
+                               css += `#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a{
 color: ${social_icon_color_color} !important;
 background: ${social_icon_color_bg};
 border: ${social_icon_border_all}px ${social_icon_border_style} ${social_icon_border_color};
 }
-#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a:hover,
-.simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-social-profile a:hover{
+.simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-social-profile a{
+color: #aaaaaa !important;
+background: transparent;
+border: 1px solid #dddddd;-webkit-border-radius: 0px;
+-moz-border-radius: 0px;
+border-radius: 0px;
+}
+#sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .tpro-social-profile a:hover{
 color: ${social_icon_color_color_hover} !important;
 background: ${social_icon_color_bg_hover};
 border-color: ${social_icon_border_color_hv};
-}`;
-                         }
-                       }
+}
+.simesy-tpro-modal-testimonial-${id}.simesy-tpro-modal-testimonial .tpro-social-profile a:hover{
+    color: #ffffff @important;
+    background: #52b3d9;
+    border-color: #52b3d9;
+}
+`;
+                             }
+                           }
 
-                       var testimonial_border_all = config.testimonial_border.all,
-                           testimonial_border_style = config.testimonial_border.style,
-                           testimonial_border_color = config.testimonial_border.color,
-                           testimonial_bg = config.testimonial_bg,
-                           testimonial_bg_two = config.testimonial_bg_two,
-                           testimonial_bg_three = config.testimonial_bg_three,
-                           testimonial_inner_padding_top = config.testimonial_inner_padding.top,
-                           testimonial_inner_padding_right = config.testimonial_inner_padding.right,
-                           testimonial_inner_padding_bottom = config.testimonial_inner_padding.bottom,
-                           testimonial_inner_padding_left = config.testimonial_inner_padding.left,
+                           var testimonial_border_all = config.testimonial_border.all,
+                               testimonial_border_style = config.testimonial_border.style,
+                               testimonial_border_color = config.testimonial_border.color,
+                               testimonial_bg = config.testimonial_bg,
+                               testimonial_bg_two = config.testimonial_bg_two,
+                               testimonial_bg_three = config.testimonial_bg_three,
+                               testimonial_inner_padding_top = config.testimonial_inner_padding.top,
+                               testimonial_inner_padding_right = config.testimonial_inner_padding.right,
+                               testimonial_inner_padding_bottom = config.testimonial_inner_padding.bottom,
+                               testimonial_inner_padding_left = config.testimonial_inner_padding.left,
 
-                           testimonial_info_bg = config.testimonial_info_bg,
-                           testimonial_info_border_all = config.testimonial_info_border.all,
-                           testimonial_info_border_style = config.testimonial_info_border.style,
-                           testimonial_info_border_color = config.testimonial_info_border.color;
+                               testimonial_info_bg = config.testimonial_info_bg,
+                               testimonial_info_border_all = config.testimonial_info_border.all,
+                               testimonial_info_border_style = config.testimonial_info_border.style,
+                               testimonial_info_border_color = config.testimonial_info_border.color;
 
-                       if(["theme-two", "theme-six"].includes(theme_style)){
-                         css += `
+                           if(["theme-two", "theme-six"].includes(theme_style)){
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg};
 }`
-                         if(!testimonial_image){
-                           css += `
+                             if(!testimonial_image){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                         }
-                       }
-                       if(theme_style == 'theme-three'){
-                         css += `
+                             }
+                           }
+                           if(theme_style == 'theme-three'){
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg};
 }`
-                         if(!testimonial_image){
-                           css += `
+                             if(!testimonial_image){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                         }
-                       }
-                       if(theme_style == 'theme-four'){
-                         css += `
+                             }
+                           }
+                           if(theme_style == 'theme-four'){
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg_two};
 }`
-                         css += `
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                       }
-                       if(theme_style == 'theme-five'){
-                         css += `
+                           }
+                           if(theme_style == 'theme-five'){
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg};
 }`
-                         css += `
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                       }
-                       if(theme_style == 'theme-seven'){
-                         var tpro_border_width = parseInt(config.testimonial_border.all) + 13;
-                         var tpro_border_height = parseInt(config.testimonial_border.all) + 17;
-                         var tpro_margin_top  = tpro_border_height + 13;
-                         css += `
+                           }
+                           if(theme_style == 'theme-seven'){
+                             var tpro_border_width = parseInt(config.testimonial_border.all) + 13;
+                             var tpro_border_height = parseInt(config.testimonial_border.all) + 17;
+                             var tpro_margin_top  = tpro_border_height + 13;
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg_three};
@@ -1951,19 +2202,19 @@ border-width: 0 ${tpro_border_width}px ${tpro_border_height}px ${tpro_border_wid
 margin-left: -${testimonial_border_all}px;
 }';
 `
-                         if(!testimonial_image){
-                           css += `
+                             if(!testimonial_image){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro{
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                         }
-                       }
-                       if (theme_style == 'theme-eight' ) {
-                         if ( config.testimonial_info_position[0] == 'bottom' ) {
-                           var tpro_border_width = parseInt(testimonial_border_all) + 13;
-                           var tpro_border_height = parseInt(testimonial_border_all) + 14;
-                           css += `
+                             }
+                           }
+                           if (theme_style == 'theme-eight' ) {
+                             if ( config.testimonial_info_position[0] == 'bottom' ) {
+                               var tpro_border_width = parseInt(testimonial_border_all) + 13;
+                               var tpro_border_height = parseInt(testimonial_border_all) + 14;
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background : ${testimonial_bg_three};
@@ -2003,11 +2254,11 @@ border-width: ${tpro_border_height}px ${tpro_border_width}px 0 ${tpro_border_wid
 margin-right: -${tpro_border_height}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position[0] == 'top'){
-                           var tpro_border_width = parseInt(testimonial_border_all) + 13;
-                           var tpro_border_height = parseInt(testimonial_border_all) + 17;
-                           css += `
+                             }
+                             else if(config.testimonial_info_position[0] == 'top'){
+                               var tpro_border_width = parseInt(testimonial_border_all) + 13;
+                               var tpro_border_height = parseInt(testimonial_border_all) + 17;
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg_three};
@@ -2047,11 +2298,11 @@ border-width: 0 ${tpro_border_width}px ${tpro_border_height}px ${tpro_border_wid
 margin-right: -${tpro_border_width}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position[0] == 'right'){
-                           var tpro_border_width = parseInt(testimonial_border_all) + 13;
-                           var tpro_border_height = parseInt(testimonial_border_all) + 17;
-                           css += `
+                             }
+                             else if(config.testimonial_info_position[0] == 'right'){
+                               var tpro_border_width = parseInt(testimonial_border_all) + 13;
+                               var tpro_border_height = parseInt(testimonial_border_all) + 17;
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg_three};
@@ -2095,11 +2346,11 @@ border-width: ${tpro_border_width}px 0 ${tpro_border_width}px ${tpro_border_heig
 margin-top: -${testimonial_border_all}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position[0] == 'left'){
-                           var tpro_border_width = parseInt(testimonial_border_all) + 13;
-                           var tpro_border_height = parseInt(testimonial_border_all) + 17;
-                           css += `
+                             }
+                             else if(config.testimonial_info_position[0] == 'left'){
+                               var tpro_border_width = parseInt(testimonial_border_all) + 13;
+                               var tpro_border_height = parseInt(testimonial_border_all) + 17;
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg_three};
@@ -2143,21 +2394,21 @@ border-width: ${tpro_border_width}px ${tpro_border_height}px ${tpro_border_width
 margin-top: -${testimonial_border_all}px;
 }
 `;
-                         }
-                       }
-                       if (theme_style == 'theme-nine' ) {
-                         var tpro_border_width = parseInt(testimonial_border_all) + 13;
-                         var tpro_border_height = parseInt(testimonial_border_all) + 17;
-                         css += `
+                             }
+                           }
+                           if (theme_style == 'theme-nine' ) {
+                             var tpro_border_width = parseInt(testimonial_border_all) + 13;
+                             var tpro_border_height = parseInt(testimonial_border_all) + 17;
+                             css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-content-area{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background : ${testimonial_bg_three};
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 position:relative;
 }`
-                         if ( config.testimonial_info_position_two[0] == 'bottom_left' ) {
+                             if ( config.testimonial_info_position_two[0] == 'bottom_left' ) {
 
-                           css += `
+                               css += `
 
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-meta-area{
 display: flex;
@@ -2196,9 +2447,9 @@ border-width: ${tpro_border_height}px ${tpro_border_width}px 0 ${tpro_border_wid
 margin-right: -${testimonial_border_all}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position_two[0] == 'bottom_right'){
-                           css += `
+                             }
+                             else if(config.testimonial_info_position_two[0] == 'bottom_right'){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-meta-area{
 display: flex;
 border-top: 0 solid;
@@ -2235,9 +2486,9 @@ border-width: ${tpro_border_height}px ${tpro_border_width}px 0 ${tpro_border_wid
 margin-right: -${testimonial_border_all}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position_two[0] == 'top_left'){
-                           css += `
+                             }
+                             else if(config.testimonial_info_position_two[0] == 'top_left'){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-meta-area{
 display: flex;
 border-top: ${testimonial_info_border_all}px ${testimonial_info_border_style};
@@ -2274,9 +2525,9 @@ border-width: 0 ${tpro_border_width}px ${tpro_border_height}px ${tpro_border_wid
 margin-left: -${testimonial_border_all}px;
 }
 `;
-                         }
-                         else if(config.testimonial_info_position_two[0] == 'top_right'){
-                           css += `
+                             }
+                             else if(config.testimonial_info_position_two[0] == 'top_right'){
+                               css += `
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .simesy-testimonial-pro .tpro-testimonial-meta-area{
 display: flex;
 border-top: ${testimonial_info_border_all}px ${testimonial_info_border_style};
@@ -2313,19 +2564,19 @@ border-width: 0 ${tpro_border_width}px ${tpro_border_height}px ${tpro_border_wid
 margin-right: -${testimonial_border_all}px;
 }
 `;
-                         }
-                       }
-                       if (theme_style == 'theme-ten'){
-                         if(config.client_image_border_shadow[0] == 'border'){
-                           var client_image_total_height_size = parseInt(image_sizes_custom_height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
+                           }
+                           if (theme_style == 'theme-ten'){
+                             if(config.client_image_border_shadow[0] == 'border'){
+                               var client_image_total_height_size = parseInt(image_sizes_custom_height) + parseInt(config.image_border.all) + parseInt(config.image_border.all) + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
 
-                         }
-                         else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
-                           var client_image_total_height_size = parseInt(image_sizes_custom_height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
-                         }
-                         var client_image_height_size_two = client_image_total_height_size / 2;
-                         var client_image_height_size     = parseInt(client_image_height_size_two) + parseInt(config.testimonial_inner_padding.top);
-                         css += `
+                             }
+                             else if ( config.client_image_border_shadow[0] == 'box_shadow' ) {
+                               var client_image_total_height_size = parseInt(image_sizes_custom_height) + 14 + parseInt(config.image_padding.all) + parseInt(config.image_padding.all);
+                             }
+                             var client_image_height_size_two = client_image_total_height_size / 2;
+                             var client_image_height_size     = parseInt(client_image_height_size_two) + parseInt(config.testimonial_inner_padding.top);
+                             css += `
 #sp-testimonial-pro-wrapper-${id} .simesy-testimonial-pro-section .simesy-testimonial-pro{
 border: ${testimonial_border_all}px ${testimonial_border_style} ${testimonial_border_color};
 background: ${testimonial_bg};
@@ -2353,10 +2604,10 @@ display:block !Important;
 padding: ${testimonial_inner_padding_top}px ${testimonial_inner_padding_right}px ${testimonial_inner_padding_bottom}px ${testimonial_inner_padding_left}px;
 }
 `;
-                       }
-                       if(testimonial_image_border_shadow == 'box_shadow' && testimonial_image){
-                         var testimonial_image_shadow = config.testimonial_box_shadow_color;
-                         css +=`
+                           }
+                           if(testimonial_image_border_shadow == 'box_shadow' && testimonial_image){
+                             var testimonial_image_shadow = config.testimonial_box_shadow_color;
+                             css +=`
 #simesy-testimonial-pro-${id}.simesy-testimonial-pro-section .tpro-client-image img, .simesy-tpro-modal-testimonial-${id} .tpro-client-image img{
 background: ${testimonial_image_bg};
 padding: 3px;
@@ -2364,73 +2615,73 @@ box-shadow: 0px 0px 7px 0px ${testimonial_image_shadow};
 margin: 7px;
 }
 `
-                       }
+                           }
 
-                       $("#sp-testimonial-pro-wrapper-"+id).before(`<style>${css}</style>`);
-                       var html = "",html_thumb = "",script_thumb='',html_info = '';
-                       var video_show = video_icon ? 1:0;
-                       var data_tesimonial = "{'videoIcon':"+video_show+",'thumbnailSlider':"+thumbnail_slider+"}";
-                       var slider_data = ' data-video="'+video_show+'" data-thumbnailSlider="'+thumbnail_slider+'" data-layout="' + layout_present + '"  data-preloader=' + pre_loader + "";
-                       var grid_style_class = "";
-                       var class_layout = '';
-                       var  carousel_pause_on_hover = config.slider_pause_on_hover,
-                           rtl_mode = config.slider_direction[0] == 'ltr' ? 'false' : 'true',
-                           carousel_draggable = config.slider_draggable,
-                           carousel_infinite = config.slider_infinite,
-                           columns_1 = config.columns.large_desktop != "" ? config.columns.large_desktop : "1",
-                           columns_2 = config.columns.desktop != "" ? config.columns.desktop : "1",
-                           columns_3 = config.columns.laptop != "" ? config.columns.laptop : "1",
-                           columns_4 = config.columns.tablet != "" ? config.columns.tablet : "1",
-                           columns_5 = config.columns.mobile != "" ? config.columns.mobile : "1",
-                           carousel_auto_play = config.slider_auto_play[0],
-                           carousel_scroll_speed = config.slider_scroll_speed != "" ? config.slider_scroll_speed : "600",
-                           carousel_auto_play_speed = config.slider_auto_play_speed != "" ? config.slider_auto_play_speed : "3000",
-                           slides_to_scroll_1 = config.slide_to_scroll.large_desktop != "" ? config.slide_to_scroll.large_desktop : "1",
-                           slides_to_scroll_2 = config.slide_to_scroll.desktop != "" ? config.slide_to_scroll.desktop : "1",
-                           slides_to_scroll_3 = config.slide_to_scroll.laptop != "" ? config.slide_to_scroll.laptop : "1",
-                           slides_to_scroll_4 = config.slide_to_scroll.tablet != "" ? config.slide_to_scroll.tablet : "1",
-                           slides_to_scroll_5 = config.slide_to_scroll.mobile != "" ? config.slide_to_scroll.mobile : "1",
+                           $("#sp-testimonial-pro-wrapper-"+id).before(`<style>${css}</style>`);
+                           var html = "",html_thumb = "",script_thumb='',html_info = '';
+                           var video_show = video_icon ? 1:0;
+                           var data_tesimonial = "{'videoIcon':"+video_show+",'thumbnailSlider':"+thumbnail_slider+"}";
+                           var slider_data = ' data-video="'+video_show+'" data-thumbnailSlider="'+thumbnail_slider+'" data-layout="' + layout_present + '"  data-preloader=' + pre_loader + "";
+                           var grid_style_class = "";
+                           var class_layout = '';
+                           var  carousel_pause_on_hover = config.slider_pause_on_hover,
+                               rtl_mode = config.slider_direction[0] == 'ltr' ? 'false' : 'true',
+                               carousel_draggable = config.slider_draggable,
+                               carousel_infinite = config.slider_infinite,
+                               columns_1 = config.columns.large_desktop != "" ? config.columns.large_desktop : "1",
+                               columns_2 = config.columns.desktop != "" ? config.columns.desktop : "1",
+                               columns_3 = config.columns.laptop != "" ? config.columns.laptop : "1",
+                               columns_4 = config.columns.tablet != "" ? config.columns.tablet : "1",
+                               columns_5 = config.columns.mobile != "" ? config.columns.mobile : "1",
+                               carousel_auto_play = config.slider_auto_play[0],
+                               carousel_scroll_speed = config.slider_scroll_speed != "" ? config.slider_scroll_speed : "600",
+                               carousel_auto_play_speed = config.slider_auto_play_speed != "" ? config.slider_auto_play_speed : "3000",
+                               slides_to_scroll_1 = config.slide_to_scroll.large_desktop != "" ? config.slide_to_scroll.large_desktop : "1",
+                               slides_to_scroll_2 = config.slide_to_scroll.desktop != "" ? config.slide_to_scroll.desktop : "1",
+                               slides_to_scroll_3 = config.slide_to_scroll.laptop != "" ? config.slide_to_scroll.laptop : "1",
+                               slides_to_scroll_4 = config.slide_to_scroll.tablet != "" ? config.slide_to_scroll.tablet : "1",
+                               slides_to_scroll_5 = config.slide_to_scroll.mobile != "" ? config.slide_to_scroll.mobile : "1",
 
-                           slider_row_1 = config.slider_row.large_desktop != "" ? config.slider_row.large_desktop : "1",
-                           slider_row_2 = config.slider_row.desktop != "" ? config.slider_row.desktop : "1",
-                           slider_row_3 = config.slider_row.laptop != "" ? config.slider_row.laptop : "1",
-                           slider_row_4 = config.slider_row.tablet != "" ? config.slider_row.tablet : "1",
-                           slider_row_5 = config.slider_row.mobile != "" ? config.slider_row.mobile : "1",
-                           adaptive_height = config.adaptive_height,
-                           slide_animation = config.slider_animation[0] == 'fade' ? true : false,
-                           swipe_to_slide = config.swipe_to_slide,
-                           carousel_swipe = config.slider_swipe;
-                       if (layout_present == "slider" && config.thumbnail_slider == false) {
-                         class_layout += 'simesy-testimonial-pro-section  tpro-layout-slider-'+carousel_ticker_mode+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
+                               slider_row_1 = config.slider_row.large_desktop != "" ? config.slider_row.large_desktop : "1",
+                               slider_row_2 = config.slider_row.desktop != "" ? config.slider_row.desktop : "1",
+                               slider_row_3 = config.slider_row.laptop != "" ? config.slider_row.laptop : "1",
+                               slider_row_4 = config.slider_row.tablet != "" ? config.slider_row.tablet : "1",
+                               slider_row_5 = config.slider_row.mobile != "" ? config.slider_row.mobile : "1",
+                               adaptive_height = config.adaptive_height,
+                               slide_animation = config.slider_animation[0] == 'fade' ? true : false,
+                               swipe_to_slide = config.swipe_to_slide,
+                               carousel_swipe = config.slider_swipe;
+                           if (layout_present == "slider" && config.thumbnail_slider == false) {
+                             class_layout += 'simesy-testimonial-pro-section  tpro-layout-slider-'+carousel_ticker_mode+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
 
-                         if (carousel_ticker_mode == "standard") {
-                           slider_data += ' data-mode="normal" data-arrowicon="' + navigation_arrow_type +  '" data-slick=\'{"dots": ' +  pagi_desktop +',"adaptiveHeight":'+adaptive_height+', "pauseOnHover": ' + carousel_pause_on_hover + ', "slidesToShow": ' +  columns_1 + ', "speed": ' + carousel_scroll_speed + ', "arrows": ' + nav_desktop + ', "autoplay": ' + carousel_auto_play + ', "autoplaySpeed": ' + carousel_auto_play_speed + ', "swipe": ' + carousel_swipe + ', "draggable": ' + carousel_draggable + ', "rtl": ' + rtl_mode + ', "infinite": ' + carousel_infinite + ', "slidesToScroll": ' + slides_to_scroll_1 + ', "rows": ' + slider_row_1 + ',"fade":'+slide_animation+', "responsive": [{"breakpoint": 1280, "settings": { "slidesToShow": ' + columns_2 + ', "slidesToScroll": ' + slides_to_scroll_2 + ', "rows": ' + slider_row_2 + ' } },{"breakpoint": 980, "settings": { "slidesToShow": ' + columns_3 + ', "slidesToScroll": ' + slides_to_scroll_3 + ', "rows": ' + slider_row_3 + ' } },{"breakpoint": 736, "settings": { "slidesToShow": ' + columns_4 + ', "slidesToScroll": ' + slides_to_scroll_4 + ', "rows": ' + slider_row_4 + ' }}, {"breakpoint":480, "settings": { "slidesToShow": ' + columns_5 + ', "slidesToScroll": ' + slides_to_scroll_5 + ', "rows": ' + slider_row_5 + ', "dots": ' + pagi_mobile + ', "arrows": ' + nav_mobile + " } } ] }'";
-                         } else {
-                           slider_data += ' data-mode="ticker" data-slick=\'{"pauseOnHover": ' + carousel_pause_on_hover + ', "slidesToShow": ' +  columns_1 + ', "speed": ' + carousel_scroll_speed + ', "autoplay": ' + carousel_auto_play + ', "rtl": ' + rtl_mode + ', "infinite": ' + carousel_infinite + ', "responsive": [{"breakpoint": 1280, "settings": { "slidesToShow": ' + columns_2 + ' } },{"breakpoint": 980, "settings": { "slidesToShow": ' + columns_3 + ' } },{"breakpoint": 736, "settings": { "slidesToShow": ' + columns_4 + ' }}, {"breakpoint":480, "settings": { "slidesToShow": ' + columns_5 +" } } ] }'";
-                         }
-                       }
-                       if (layout_present == "grid"){
-                         class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-grid-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
-                       }
-                       if (layout_present == "masonry"){
-                         class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-masonry-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' simesy_testimonial_pro_masonry tpro-style-'+theme_style+'';
-                       }
-                       if (layout_present == "list"){
-                         class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-list-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
-                       }
-                       var class_preload = pre_loader ? 'preloader' : '';
-                       if(config.section_title){
-                         html += '<h2 class="simesy-section-title '+class_preload+'">' + config.title + "</h2>";
-                       }
-                       if (pre_loader) {
-                         html +='<div class="simesy-preloader" id="simesy-preloader-' +id +'" style=""><img src="https://cdn.shopify.com/s/files/1/0553/9830/1811/files/preloader.gif?v=1639626026"/></div>';
-                       }
-                       if(config.testimonial_read_more){
-                         html += '<div class="sp-tpro-rm-config">{"testimonial_characters_limit":'+config.testimonial_characters_limit+',"testimonial_read_more_text":"'+config.testimonial_read_more_text+'","testimonial_read_less_text":"'+config.testimonial_read_less_text+'","testimonial_read_more_ellipsis":"'+config.testimonial_read_more_ellipsis+'"}</div>';
-                       }
-                       if (layout_present == "slider" && config.thumbnail_slider){
-                         var rtl_mode_true = config.slider_direction[0];
-                         script_thumb += `<script>
+                             if (carousel_ticker_mode == "standard") {
+                               slider_data += ' data-mode="normal" data-arrowicon="' + navigation_arrow_type +  '" data-slick=\'{"dots": ' +  pagi_desktop +',"adaptiveHeight":'+adaptive_height+', "pauseOnHover": ' + carousel_pause_on_hover + ', "slidesToShow": ' +  columns_1 + ', "speed": ' + carousel_scroll_speed + ', "arrows": ' + nav_desktop + ', "autoplay": ' + carousel_auto_play + ', "autoplaySpeed": ' + carousel_auto_play_speed + ', "swipe": ' + carousel_swipe + ', "draggable": ' + carousel_draggable + ', "rtl": ' + rtl_mode + ', "infinite": ' + carousel_infinite + ', "slidesToScroll": ' + slides_to_scroll_1 + ', "rows": ' + slider_row_1 + ',"fade":'+slide_animation+', "responsive": [{"breakpoint": 1280, "settings": { "slidesToShow": ' + columns_2 + ', "slidesToScroll": ' + slides_to_scroll_2 + ', "rows": ' + slider_row_2 + ' } },{"breakpoint": 980, "settings": { "slidesToShow": ' + columns_3 + ', "slidesToScroll": ' + slides_to_scroll_3 + ', "rows": ' + slider_row_3 + ' } },{"breakpoint": 736, "settings": { "slidesToShow": ' + columns_4 + ', "slidesToScroll": ' + slides_to_scroll_4 + ', "rows": ' + slider_row_4 + ' }}, {"breakpoint":480, "settings": { "slidesToShow": ' + columns_5 + ', "slidesToScroll": ' + slides_to_scroll_5 + ', "rows": ' + slider_row_5 + ', "dots": ' + pagi_mobile + ', "arrows": ' + nav_mobile + " } } ] }'";
+                             } else {
+                               slider_data += ' data-mode="ticker" data-slick=\'{"pauseOnHover": ' + carousel_pause_on_hover + ', "slidesToShow": ' +  columns_1 + ', "speed": ' + carousel_scroll_speed + ', "autoplay": ' + carousel_auto_play + ', "rtl": ' + rtl_mode + ', "infinite": ' + carousel_infinite + ', "responsive": [{"breakpoint": 1280, "settings": { "slidesToShow": ' + columns_2 + ' } },{"breakpoint": 980, "settings": { "slidesToShow": ' + columns_3 + ' } },{"breakpoint": 736, "settings": { "slidesToShow": ' + columns_4 + ' }}, {"breakpoint":480, "settings": { "slidesToShow": ' + columns_5 +" } } ] }'";
+                             }
+                           }
+                           if (layout_present == "grid"){
+                             class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-grid-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
+                           }
+                           if (layout_present == "masonry"){
+                             class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-masonry-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' simesy_testimonial_pro_masonry tpro-style-'+theme_style+'';
+                           }
+                           if (layout_present == "list"){
+                             class_layout += 'simesy-testimonial-pro-section '+config.tp_pagination_type[0]+' tpro-layout-list-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'';
+                           }
+                           var class_preload = pre_loader ? 'preloader' : '';
+                           if(config.section_title){
+                             html += '<h2 class="simesy-section-title '+class_preload+'">' + config.title + "</h2>";
+                           }
+                           if (pre_loader) {
+                             html +='<div class="simesy-preloader" id="simesy-preloader-' +id +'" style=""><img src="https://cdn.shopify.com/s/files/1/0553/9830/1811/files/preloader.gif?v=1639626026"/></div>';
+                           }
+                           if(config.testimonial_read_more){
+                             html += '<div class="sp-tpro-rm-config">{"testimonial_characters_limit":'+config.testimonial_characters_limit+',"testimonial_read_more_text":"'+config.testimonial_read_more_text+'","testimonial_read_less_text":"'+config.testimonial_read_less_text+'","testimonial_read_more_ellipsis":"'+config.testimonial_read_more_ellipsis+'"}</div>';
+                           }
+                           if (layout_present == "slider" && config.thumbnail_slider){
+                             var rtl_mode_true = config.slider_direction[0];
+                             script_thumb += `<script>
 jQuery(document).ready(function() {
 jQuery("#simesy-testimonial-pro-${id}.simesy-testimonial-pro-section-thumb").slick({
 slidesToShow: 5,
@@ -2499,1017 +2750,283 @@ autoplay: false,
 })
 })
 </script>`;
-                         html_thumb += '<div id="simesy-testimonial-pro-'+id+'" dir="'+rtl_mode_true+'" data-thumbnailSlider="'+thumbnail_slider+'" class="simesy-testimonial-pro-section simesy-testimonial-pro-section-thumb">';
-                         html_info += '<div id="simesy-testimonial-pro-'+id+'" dir="'+rtl_mode_true+'" data-preloader=' + pre_loader +' class="simesy-testimonial-pro-section simesy-testimonial-pro-section-content '+config.tp_pagination_type[0]+' tpro-layout-list-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'">';
-                       }else{
-                         html += '<div id="simesy-testimonial-pro-' + id + '" class="'+class_layout+'" ' + slider_data + ">";
-                         html += "</div>";
-                       }
-                       html += "</div></div>";
+                             html_thumb += '<div id="simesy-testimonial-pro-'+id+'" dir="'+rtl_mode_true+'" data-thumbnailSlider="'+thumbnail_slider+'" class="simesy-testimonial-pro-section simesy-testimonial-pro-section-thumb">';
+                             html_info += '<div id="simesy-testimonial-pro-'+id+'" dir="'+rtl_mode_true+'" data-preloader=' + pre_loader +' class="simesy-testimonial-pro-section simesy-testimonial-pro-section-content '+config.tp_pagination_type[0]+' tpro-layout-list-'+config.slider_mode[0]+' simesy-testimonial-pro-read-more tpro-readmore-'+config.testimonial_read_more_link_action[0]+'-'+config.testimonial_read_more+' tpro-style-'+theme_style+'">';
+                           }else{
+                             html += '<div id="simesy-testimonial-pro-' + id + '" class="'+class_layout+'" ' + slider_data + ">";
+                             html += "</div>";
+                           }
+                           html += "</div></div>";
 
-                       $("div[data-view-id='"+id+"']").addClass( "sp_tpro_nav_position_" +navigation_position + " simesy_" + config.theme_style + "");
-                       $("div[data-view-id='"+id+"']").html(html);
-                       var html_theme ='';
-                       if(layout_present == 'grid' || layout_present == 'list'){
-                         html_theme += '<div class="sp-tpro-items">';
-                       }
-                       if(layout_present == 'masonry'){
-                         html_theme += '<div class="sp-tpro-items masonry">';
-                       }
-                       var img_thumb = '';
-                       var html_popup = '';
-                       $.each(testimonial_list, function (index, item_testi) {
-                         if(layout_present == "slider" && config.thumbnail_slider){
-                           var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                               image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                           html_thumb += '<div class="simesy-testimonial-pro-item">';
-                           html_thumb += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+'">';
-                           html_thumb += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'"/>';
-                           html_thumb += '</div></div>';
-                         }
-                         if(config.testimonial_read_more && config.testimonial_read_more_link_action[0] == 'popup'){
-                           html_popup += '<div class="remodal simesy-tpro-modal-testimonial-'+id+' simesy-tpro-modal-testimonial" data-remodal-id="simesy-tpro-testimonial-id-'+id+'-'+index+'">';
-                           html_popup += '<a data-remodal-action="close" class="remodal-close"></a>';
-                           html_popup += '<div class="simesy-testimonial-pro-item">';
-                           html_popup += '<div class="sp-testimonial-pro">';
-                           if(config.client_image){
+                           $("div[data-view-id='"+id+"']").addClass( "sp_tpro_nav_position_" +navigation_position + " simesy_" + config.theme_style + "");
+                           $("div[data-view-id='"+id+"']").html(html);
+                           var html_theme ='';
+                           if(layout_present == 'grid' || layout_present == 'list'){
+                             html_theme += '<div class="sp-tpro-items">';
+                           }
+                           if(layout_present == 'masonry'){
+                             html_theme += '<div class="sp-tpro-items masonry">';
+                           }
+                           var img_thumb = '';
+                           var html_popup = '';
+                           $.each(testimonial_list, function (index, item_testi) {
+                             if(layout_present == "slider" && config.thumbnail_slider){
+                               var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                   image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                               html_thumb += '<div class="simesy-testimonial-pro-item">';
+                               html_thumb += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+'">';
+                               html_thumb += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'"/>';
+                               html_thumb += '</div></div>';
+                             }
+                             if(config.testimonial_read_more && config.testimonial_read_more_link_action[0] == 'popup'){
+                               html_popup += '<div class="remodal simesy-tpro-modal-testimonial-'+id+' simesy-tpro-modal-testimonial" data-remodal-id="simesy-tpro-testimonial-id-'+id+'-'+index+'">';
+                               html_popup += '<a data-remodal-action="close" class="remodal-close"></a>';
+                               html_popup += '<div class="simesy-testimonial-pro-item">';
+                               html_popup += '<div class="sp-testimonial-pro">';
+                               if(config.client_image){
+                                 var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                     image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                                 html_popup += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                                 if(config.video_icon && item_testi.config.video_url != ''){
+                                   //html_popup += '<a href="'+item_testi.config.video_url+'" class="sp-tpro-video">';
+                                   html_popup += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                   //html_popup += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                   html_popup += '</a>';
+                                 }else{
+                                   html_popup += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                                 }
+                                 html_popup += '</div>';
+                               }
+                               if(config.testimonial_title && item_testi.config.title != ''){
+                                 html_popup += '<div class="tpro-testimonial-title">';
+                                 html_popup += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+item_testi.config.title+'</'+config.testimonial_title_tag+'>';
+                                 html_popup += '</div>';
+                               }
+
+                               var text_des = item_testi.config.content;
+                               var des_modal = text_des.replace(/[\\]/g, "");
+                               /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                               if(config.testimonial_text && text_des != ''){
+                                 html_popup += '<div class="tpro-client-testimonial">';
+                                 html_popup += '<div class="tpro-testimonial-text">'+des_modal+'</div>';
+
+                                 html_popup += '</div>';
+                               }
+                               if(config.testimonial_client_name && item_testi.config.name != ''){
+                                 html_popup += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+item_testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                               }
+                               if(config.testimonial_client_rating){
+                                 html_popup += '<div class="tpro-client-rating">'+render_rate(item_testi.config.rating,'fa fa-star')+'</div>'
+                               }
+                               if(config.client_designation && item_testi.config.designation != ''){
+                                 if(config.identity_linking_website){
+                                   html_popup += '<div class="tpro-client-designation-company"><a href="'+item_testi.config.website+'" target="'+config.website_link_target[0]+'" >'+item_testi.config.designation+'</a></div>';
+                                 }
+                                 else{
+                                   html_popup += '<div class="tpro-client-designation-company">'+item_testi.config.designation+'</div>';
+
+                                 }
+                               }
+                               if(config.testimonial_client_location && item_testi.config.location != ''){
+                                 html_popup += '<div class="tpro-client-location">'+item_testi.config.location+'</div>';
+                               }
+                               if(config.testimonial_client_phone && item_testi.config.phone != ''){
+                                 html_popup += '<div class="tpro-client-phone">'+item_testi.config.phone+'</div>';
+                               }
+                               if(config.testimonial_client_email && item_testi.config.email != ''){
+                                 html_popup += '<div class="tpro-client-email">'+item_testi.config.email+'</div>';
+                               }
+                               if(config.testimonial_client_date && item_testi.createdAt != ''){
+                                 html_popup += '<div class="tpro-client-date">'+dateFormat(item_testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                               }
+                               if(config.testimonial_client_website && item_testi.config.website != ''){
+                                 if(config.identity_linking_website){
+                                   html_popup += '<div class="tpro-client-website"><a href="'+item_testi.config.website+'" target="'+config.website_link_target[0]+'">'+item_testi.config.website+'</a></div>';
+                                 }else{
+                                   html_popup += '<div class="tpro-client-website">'+item_testi.config.website+'</div>';
+                                 }
+
+                               }
+                               if(config.social_profile){
+                                 html_popup += '<div class="tpro-social-profile">';
+                                 $.each(item_testi.config.social_profiles,function(i,social){
+                                   html_popup += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
+                                 })
+                                 html_popup += '</div>';
+                               }
+                               html_popup += '</div>';
+                               html_popup += '</div>';
+                               html_popup += '</div>';
+                             }
+                             switch(config.theme_style){
+                               case "theme-one":
+                                 html_theme += html_theme_one(item_testi,config,id,index);
+                                 break;
+                               case "theme-two":
+                                 html_theme += html_theme_two(item_testi,config,id,index);
+                                 break;
+                               case "theme-three":
+                                 html_theme += html_theme_three(item_testi,config,id,index);
+                                 break;
+                               case "theme-four":
+                                 html_theme += html_theme_four(item_testi,config,id,index);
+                                 break;
+                               case "theme-five":
+                                 html_theme += html_theme_five(item_testi,config,id,index);
+                                 break;
+                               case "theme-six":
+                                 html_theme += html_theme_six(item_testi,config,id,index);
+                                 break;
+                               case "theme-seven":
+                                 html_theme += html_theme_seven(item_testi,config,id,index);
+                                 break;
+                               case "theme-eight":
+                                 html_theme += html_theme_eight(item_testi,config,id,index);
+                                 break;
+                               case "theme-nine":
+                                 html_theme += html_theme_nine(item_testi,config,id,index);
+                                 break;
+                               case "theme-ten":
+                                 html_theme += html_theme_ten(item_testi,config,id,index);
+                                 break;
+                               default:
+                             }
+
+
+                           });
+
+
+                           if(layout_present == 'grid' || layout_present == 'masonry'){
+                             html_theme += '</div>';
+                           }
+
+                           if(layout_present == "slider" && config.thumbnail_slider){
+                             html_thumb += '</div>';
+                             html_info += html_theme + '</div>';
+                             $("#sp-testimonial-pro-wrapper-" + id + "").append(script_thumb+html_thumb+html_info);
+
+                           }else{
+                             $("#simesy-testimonial-pro-" + id + "").append(html_theme);
+                           }
+                           if(config.testimonial_read_more && config.testimonial_read_more_link_action[0] == 'popup'){
+                             $("body").append(html_popup);
+
+                           }
+                         };
+
+                         //Theme one
+                         function html_theme_one(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry ">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
+                           if(config.client_image && config.thumbnail_slider == false){
                              var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
                                  image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                             html_popup += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                             if(config.video_icon && item_testi.config.video_url != ''){
-                               //html_popup += '<a href="'+item_testi.config.video_url+'" class="sp-tpro-video">';
-                               html_popup += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                               //html_popup += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                               html_popup += '</a>';
+                             html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                             if(config.video_icon && testi.config.video_url != ''){
+                               html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                               html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                               html_fun += '</a>';
                              }else{
-                               html_popup += '<img src="'+imgURL(item_testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
 
                              }
-                             html_popup += '</div>';
+                             html_fun += '</div>';
                            }
-                           if(config.testimonial_title && item_testi.config.title != ''){
-                             html_popup += '<div class="tpro-testimonial-title">';
-                             html_popup += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+item_testi.config.title+'</'+config.testimonial_title_tag+'>';
-                             html_popup += '</div>';
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
                            }
-
-                           var text_des = item_testi.config.content;
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
                            /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
                            if(config.testimonial_text && text_des != ''){
-                             html_popup += '<div class="tpro-client-testimonial">';
-                             html_popup += '<div class="tpro-testimonial-text">'+text_des+'</div>';
-
-                             html_popup += '</div>';
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
                            }
-                           if(config.testimonial_client_name && item_testi.config.name != ''){
-                             html_popup += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+item_testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
                            }
                            if(config.testimonial_client_rating){
-                             html_popup += '<div class="tpro-client-rating">'+render_rate(item_testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
                            }
-                           if(config.client_designation && item_testi.config.designation != ''){
+                           if(config.client_designation && testi.config.designation != ''){
                              if(config.identity_linking_website){
-                               html_popup += '<div class="tpro-client-designation-company"><a href="'+item_testi.config.website+'" target="'+config.website_link_target[0]+'" >'+item_testi.config.designation+'</a></div>';
-                             }
-                             else{
-                               html_popup += '<div class="tpro-client-designation-company">'+item_testi.config.designation+'</div>';
-
-                             }
-                           }
-                           if(config.testimonial_client_location && item_testi.config.location != ''){
-                             html_popup += '<div class="tpro-client-location">'+item_testi.config.location+'</div>';
-                           }
-                           if(config.testimonial_client_phone && item_testi.config.phone != ''){
-                             html_popup += '<div class="tpro-client-phone">'+item_testi.config.phone+'</div>';
-                           }
-                           if(config.testimonial_client_email && item_testi.config.email != ''){
-                             html_popup += '<div class="tpro-client-email">'+item_testi.config.email+'</div>';
-                           }
-                           if(config.testimonial_client_date && item_testi.createdAt != ''){
-                             html_popup += '<div class="tpro-client-date">'+dateFormat(item_testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                           }
-                           if(config.testimonial_client_website && item_testi.config.website != ''){
-                             if(config.identity_linking_website){
-                               html_popup += '<div class="tpro-client-website"><a href="'+item_testi.config.website+'" target="'+config.website_link_target[0]+'">'+item_testi.config.website+'</a></div>';
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
                              }else{
-                               html_popup += '<div class="tpro-client-website">'+item_testi.config.website+'</div>';
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
                              }
 
                            }
                            if(config.social_profile){
-                             html_popup += '<div class="tpro-social-profile">';
-                             $.each(item_testi.config.social_profiles,function(i,social){
-                               html_popup += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
                              })
-                             html_popup += '</div>';
-                           }
-                           html_popup += '</div>';
-                           html_popup += '</div>';
-                           html_popup += '</div>';
-                         }
-                         switch(config.theme_style){
-                           case "theme-one":
-                             html_theme += html_theme_one(item_testi,config,id,index);
-                             break;
-                           case "theme-two":
-                             html_theme += html_theme_two(item_testi,config,id,index);
-                             break;
-                           case "theme-three":
-                             html_theme += html_theme_three(item_testi,config,id,index);
-                             break;
-                           case "theme-four":
-                             html_theme += html_theme_four(item_testi,config,id,index);
-                             break;
-                           case "theme-five":
-                             html_theme += html_theme_five(item_testi,config,id,index);
-                             break;
-                           case "theme-six":
-                             html_theme += html_theme_six(item_testi,config,id,index);
-                             break;
-                           case "theme-seven":
-                             html_theme += html_theme_seven(item_testi,config,id,index);
-                             break;
-                           case "theme-eight":
-                             html_theme += html_theme_eight(item_testi,config,id,index);
-                             break;
-                           case "theme-nine":
-                             html_theme += html_theme_nine(item_testi,config,id,index);
-                             break;
-                           case "theme-ten":
-                             html_theme += html_theme_ten(item_testi,config,id,index);
-                             break;
-                           default:
-                         }
-
-
-                       });
-
-
-                       if(layout_present == 'grid' || layout_present == 'masonry'){
-                         html_theme += '</div>';
-                       }
-
-                       if(layout_present == "slider" && config.thumbnail_slider){
-                         html_thumb += '</div>';
-                         html_info += html_theme + '</div>';
-                         $("#sp-testimonial-pro-wrapper-" + id + "").append(script_thumb+html_thumb+html_info);
-
-                       }else{
-                         $("#simesy-testimonial-pro-" + id + "").append(html_theme);
-                       }
-                       if(config.testimonial_read_more && config.testimonial_read_more_link_action[0] == 'popup'){
-                         $("body").append(html_popup);
-
-                       }
-                     };
-
-                     //Theme one
-                     function html_theme_one(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry ">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image && config.thumbnail_slider == false){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme two
-                     function html_theme_two(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme three
-                     function html_theme_three(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';                 
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme four
-                     function html_theme_four(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme five
-                     function html_theme_five(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme six
-                     function html_theme_six(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme seven
-                     function html_theme_seven(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       html_fun += '<div class="tpro-testimonial-content-area">';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                         }
-                         html_fun += '</div>';
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                           }
-                         }
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme eight
-                     function html_theme_eight(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.testimonial_info_position[0] == 'left'){
-                         html_fun += '<div class="tpro-testimonial-meta-area">';
-                         if(config.client_image){
-                           var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                               image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                           html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                           if(config.video_icon && testi.config.video_url != ''){
-                             html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                             html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                             html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                             html_fun += '</a>';
-                           }else{
-                             html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
+                             html_fun += '</div>';
                            }
                            html_fun += '</div>';
-                         }
-                         if(config.testimonial_title && testi.config.title != ''){
-                           html_fun += '<div class="tpro-testimonial-title">';
-                           html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
                            html_fun += '</div>';
+                           return html_fun;
                          }
-
-                         if(config.testimonial_client_name && testi.config.name != ''){
-                           html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                         }
-                         if(config.testimonial_client_rating){
-                           html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                         }
-                         if(config.client_designation && testi.config.designation != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                         // Theme two
+                         function html_theme_two(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
                            }
-                         }
-                         if(config.testimonial_client_location && testi.config.location != ''){
-                           html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                         }
-                         if(config.testimonial_client_phone && testi.config.phone != ''){
-                           html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                         }
-                         if(config.testimonial_client_email && testi.config.email != ''){
-                           html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                         }
-                         if(config.testimonial_client_date && testi.createdAt != ''){
-                           html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                         }
-                         if(config.testimonial_client_website && testi.config.website != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
                            }
-
-                         }
-                         if(config.social_profile){
-                           html_fun += '<div class="tpro-social-profile">';
-                           $.each(testi.config.social_profiles,function(i,social){
-                             html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                           })
-                           html_fun += '</div>';
-                         }
-                         html_fun += '</div>';
-                         html_fun += '<div class="tpro-testimonial-content-area">';
-                         var text_des = testi.config.content;
-                         var check_array = text_des.split(" ");
-                         /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                         if(config.testimonial_text && text_des != ''){
-                           html_fun += '<div class="tpro-client-testimonial">';
-                           html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                           if(config.testimonial_read_more){
-                             if(config.testimonial_read_more_link_action[0] == 'expand'){
-                               html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                             }else{
-                               html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                             }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
                            }
-                           html_fun += '</div>';
-                         }
-                         html_fun += '</div>';
-                       }else{
-                         html_fun += '<div class="tpro-testimonial-content-area">';
-                         var text_des = testi.config.content;
-                         var check_array = text_des.split(" ");
-                         /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                         if(config.testimonial_text && text_des != ''){
-                           html_fun += '<div class="tpro-client-testimonial">';
-                           html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                           if(config.testimonial_read_more){
-                             if(config.testimonial_read_more_link_action[0] == 'expand'){
-                               html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                             }else{
-                               html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
-                             }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
                            }
-                           html_fun += '</div>';
-                         }
-                         html_fun += '</div>';
-                         html_fun += '<div class="tpro-testimonial-meta-area">';
-                         if(config.client_image){
-                           var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                               image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                           html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                           if(config.video_icon && testi.config.video_url != ''){
-                             html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                             html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                             html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                             html_fun += '</a>';
-                           }else{
-                             html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-
-                           }
-                           html_fun += '</div>';
-                         }
-                         if(config.testimonial_title && testi.config.title != ''){
-                           html_fun += '<div class="tpro-testimonial-title">';
-                           html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                           html_fun += '</div>';
-                         }
-
-                         if(config.testimonial_client_name && testi.config.name != ''){
-                           html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                         }
-                         if(config.testimonial_client_rating){
-                           html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                         }
-                         if(config.client_designation && testi.config.designation != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                           }
-                         }
-                         if(config.testimonial_client_location && testi.config.location != ''){
-                           html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                         }
-                         if(config.testimonial_client_phone && testi.config.phone != ''){
-                           html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                         }
-                         if(config.testimonial_client_email && testi.config.email != ''){
-                           html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                         }
-                         if(config.testimonial_client_date && testi.createdAt != ''){
-                           html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                         }
-                         if(config.testimonial_client_website && testi.config.website != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                           }
-
-                         }
-                         if(config.social_profile){
-                           html_fun += '<div class="tpro-social-profile">';
-                           $.each(testi.config.social_profiles,function(i,social){
-                             html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                           })
-                           html_fun += '</div>';
-                         }
-                         html_fun += '</div>';
-
-                       }
-
-
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme nine
-                     function html_theme_nine(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro">';
-                       if(config.testimonial_info_position_two[0] == 'top_left' || config.testimonial_info_position_two[0] == 'top_right'){
-                         html_fun += '<div class="tpro-testimonial-meta-area">';
-                         if(config.testimonial_info_position_two[0] == 'top_left'){
+                           html_fun += '<div class="simesy-testimonial-pro">';
                            if(config.client_image){
                              var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
                                  image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
@@ -3525,51 +3042,182 @@ autoplay: false,
                              }
                              html_fun += '</div>';
                            }
-                         }
-                         html_fun += '<div class="tpro-testimonial-meta-text">'
-                         if(config.testimonial_client_name && testi.config.name != ''){
-                           html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                         }
-
-                         if(config.testimonial_client_rating){
-                           html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                         }
-                         if(config.client_designation && testi.config.designation != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
                            }
-                         }
-                         if(config.testimonial_client_location && testi.config.location != ''){
-                           html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                         }
-                         if(config.testimonial_client_phone && testi.config.phone != ''){
-                           html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                         }
-                         if(config.testimonial_client_email && testi.config.email != ''){
-                           html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                         }
-                         if(config.testimonial_client_date && testi.createdAt != ''){
-                           html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                         }
-                         if(config.testimonial_client_website && testi.config.website != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
                            }
 
-                         }
-                         if(config.social_profile){
-                           html_fun += '<div class="tpro-social-profile">';
-                           $.each(testi.config.social_profiles,function(i,social){
-                             html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                           })
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                             }
+
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
                            html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                         if(config.testimonial_info_position_two[0] == 'top_right'){
+                         // Theme three
+                         function html_theme_three(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
+                           if(config.client_image){
+                             var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                 image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                             html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                             if(config.video_icon && testi.config.video_url != ''){
+                               html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                               html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                               html_fun += '</a>';
+                             }else{
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                             }
+                             html_fun += '</div>';
+                           }
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                             }
+
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
+                         }
+                         // Theme four
+                         function html_theme_four(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
                            if(config.client_image){
                              var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
                                  image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
@@ -3585,57 +3233,86 @@ autoplay: false,
                              }
                              html_fun += '</div>';
                            }
-                         }
-                         html_fun += '</div>';
-                         html_fun += '<div class="tpro-testimonial-content-area">';
-                         if(config.testimonial_title && testi.config.title != ''){
-                           html_fun += '<div class="tpro-testimonial-title">';
-                           html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                           html_fun += '</div>';
-                         }
-
-                         var text_des = testi.config.content;
-                         var check_array = text_des.split(" ");
-                         /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                         if(config.testimonial_text && text_des != ''){
-                           html_fun += '<div class="tpro-client-testimonial">';
-                           html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                           if(config.testimonial_read_more){
-                             if(config.testimonial_read_more_link_action[0] == 'expand'){
-                               html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
                              }else{
-                               html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
                              }
                            }
-                           html_fun += '</div>';
-                         }
-                         html_fun += '</div>';
-                       }else{
-                         html_fun += '<div class="tpro-testimonial-content-area">';
-                         if(config.testimonial_title && testi.config.title != ''){
-                           html_fun += '<div class="tpro-testimonial-title">';
-                           html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                           html_fun += '</div>';
-                         }
-
-                         var text_des = testi.config.content;
-                         var check_array = text_des.split(" ");
-                         /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                         if(config.testimonial_text && text_des != ''){
-                           html_fun += '<div class="tpro-client-testimonial">';
-                           html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                           if(config.testimonial_read_more){
-                             if(config.testimonial_read_more_link_action[0] == 'expand'){
-                               html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
                              }else{
-                               html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
                              }
+
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
                            }
                            html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                         html_fun += '<div class="tpro-testimonial-meta-area">';
-                         if(config.testimonial_info_position_two[0] == 'bottom_left'){
+                         // Theme five
+                         function html_theme_five(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
                            if(config.client_image){
                              var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
                                  image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
@@ -3651,51 +3328,87 @@ autoplay: false,
                              }
                              html_fun += '</div>';
                            }
-                         }
-                         html_fun += '<div class="tpro-testimonial-meta-text">'
-
-                         if(config.testimonial_client_name && testi.config.name != ''){
-                           html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                         }
-                         if(config.testimonial_client_rating){
-                           html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                         }
-                         if(config.client_designation && testi.config.designation != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
                            }
-                         }
-                         if(config.testimonial_client_location && testi.config.location != ''){
-                           html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                         }
-                         if(config.testimonial_client_phone && testi.config.phone != ''){
-                           html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                         }
-                         if(config.testimonial_client_email && testi.config.email != ''){
-                           html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                         }
-                         if(config.testimonial_client_date && testi.createdAt != ''){
-                           html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                         }
-                         if(config.testimonial_client_website && testi.config.website != ''){
-                           if(config.identity_linking_website){
-                             html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                           }else{
-                             html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
                            }
 
-                         }
-                         if(config.social_profile){
-                           html_fun += '<div class="tpro-social-profile">';
-                           $.each(testi.config.social_profiles,function(i,social){
-                             html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                           })
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                             }
+
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
                            html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                         if(config.testimonial_info_position_two[0] == 'bottom_right'){
+                         // Theme six
+                         function html_theme_six(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
                            if(config.client_image){
                              var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
                                  image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
@@ -3711,165 +3424,711 @@ autoplay: false,
                              }
                              html_fun += '</div>';
                            }
+
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                             }
+
+                           }
+
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
+
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                       }
-                       html_fun += '</div>';
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Theme ten
-                     function html_theme_ten(testi,config,id,index){
-                       var html_fun = '';
-                       if(config.layout[0] == "slider"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       if(config.layout[0] == "grid"){
-                         html_fun += '<div class="sp-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
-                       }
-                       if(config.layout[0] == "masonry"){
-                         html_fun += '<div class="sp-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
-                       }
-                       if(config.layout[0] == "list"){
-                         html_fun += '<div class="simesy-testimonial-pro-item">';
-                       }
-                       html_fun += '<div class="simesy-testimonial-pro"><div class="simesy-tpro-top-background"></div>';
-                       if(config.client_image){
-                         var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
-                             image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
-                         html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
-                         if(config.video_icon && testi.config.video_url != ''){
-                           html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
-                           html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
-                           html_fun += '</a>';
-                         }else{
-                           html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                         // Theme seven
+                         function html_theme_seven(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
+                           html_fun += '<div class="tpro-testimonial-content-area">';
+                           if(config.client_image){
+                             var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                 image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                             html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                             if(config.video_icon && testi.config.video_url != ''){
+                               html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                               html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                               html_fun += '</a>';
+                             }else{
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
 
+                             }
+                             html_fun += '</div>';
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                       }
+                         // Theme eight
+                         function html_theme_eight(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
+                           if(config.testimonial_info_position[0] == 'left'){
+                             html_fun += '<div class="tpro-testimonial-meta-area">';
+                             if(config.client_image){
+                               var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                   image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                               html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                               if(config.video_icon && testi.config.video_url != ''){
+                                 html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                 html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                 html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                 html_fun += '</a>';
+                               }else{
+                                 html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
 
+                               }
+                               html_fun += '</div>';
+                             }
+                             if(config.testimonial_title && testi.config.title != ''){
+                               html_fun += '<div class="tpro-testimonial-title">';
+                               html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                               html_fun += '</div>';
+                             }
 
-                       if(config.testimonial_title && testi.config.title != ''){
-                         html_fun += '<div class="tpro-testimonial-title">';
-                         html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
-                         html_fun += '</div>';
-                       }
+                             if(config.testimonial_client_name && testi.config.name != ''){
+                               html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                             }
+                             if(config.testimonial_client_rating){
+                               html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                             }
+                             if(config.client_designation && testi.config.designation != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                               }
+                             }
+                             if(config.testimonial_client_location && testi.config.location != ''){
+                               html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                             }
+                             if(config.testimonial_client_phone && testi.config.phone != ''){
+                               html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                             }
+                             if(config.testimonial_client_email && testi.config.email != ''){
+                               html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                             }
+                             if(config.testimonial_client_date && testi.createdAt != ''){
+                               html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                             }
+                             if(config.testimonial_client_website && testi.config.website != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                               }
 
-                       if(config.testimonial_client_name && testi.config.name != ''){
-                         html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
-                       }
-                       if(config.testimonial_client_rating){
-                         html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
-                       }
-                       if(config.client_designation && testi.config.designation != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
-                         }
-                       }
-                       var text_des = testi.config.content;
-                       var check_array = text_des.split(" ");
-                       /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
-                       if(config.testimonial_text && text_des != ''){
-                         html_fun += '<div class="tpro-client-testimonial">';
-                         html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
-                         if(config.testimonial_read_more){
-                           if(config.testimonial_read_more_link_action[0] == 'expand'){
-                             html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                             }
+                             if(config.social_profile){
+                               html_fun += '<div class="tpro-social-profile">';
+                               $.each(testi.config.social_profiles,function(i,social){
+                                 html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                               })
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                             html_fun += '<div class="tpro-testimonial-content-area">';
+                             var text_des = testi.config.content;
+                             var check_array = text_des.split(" ");
+                             /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                             if(config.testimonial_text && text_des != ''){
+                               html_fun += '<div class="tpro-client-testimonial">';
+                               html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                               if(config.testimonial_read_more){
+                                 if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                   html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }else{
+                                   html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }
+                               }
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
                            }else{
-                             html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                             html_fun += '<div class="tpro-testimonial-content-area">';
+                             var text_des = testi.config.content;
+                             var check_array = text_des.split(" ");
+                             /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                             if(config.testimonial_text && text_des != ''){
+                               html_fun += '<div class="tpro-client-testimonial">';
+                               html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                               if(config.testimonial_read_more){
+                                 if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                   html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }else{
+                                   html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }
+                               }
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                             html_fun += '<div class="tpro-testimonial-meta-area">';
+                             if(config.client_image){
+                               var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                   image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                               html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                               if(config.video_icon && testi.config.video_url != ''){
+                                 html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                 html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                 html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                 html_fun += '</a>';
+                               }else{
+                                 html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                               }
+                               html_fun += '</div>';
+                             }
+                             if(config.testimonial_title && testi.config.title != ''){
+                               html_fun += '<div class="tpro-testimonial-title">';
+                               html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                               html_fun += '</div>';
+                             }
+
+                             if(config.testimonial_client_name && testi.config.name != ''){
+                               html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                             }
+                             if(config.testimonial_client_rating){
+                               html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                             }
+                             if(config.client_designation && testi.config.designation != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                               }
+                             }
+                             if(config.testimonial_client_location && testi.config.location != ''){
+                               html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                             }
+                             if(config.testimonial_client_phone && testi.config.phone != ''){
+                               html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                             }
+                             if(config.testimonial_client_email && testi.config.email != ''){
+                               html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                             }
+                             if(config.testimonial_client_date && testi.createdAt != ''){
+                               html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                             }
+                             if(config.testimonial_client_website && testi.config.website != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                               }
+
+                             }
+                             if(config.social_profile){
+                               html_fun += '<div class="tpro-social-profile">';
+                               $.each(testi.config.social_profiles,function(i,social){
+                                 html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                               })
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+
                            }
+
+
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
                          }
-                         html_fun += '</div>';
-                       }
-                       if(config.testimonial_client_location && testi.config.location != ''){
-                         html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
-                       }
-                       if(config.testimonial_client_phone && testi.config.phone != ''){
-                         html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
-                       }
-                       if(config.testimonial_client_email && testi.config.email != ''){
-                         html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
-                       }
-                       if(config.testimonial_client_date && testi.createdAt != ''){
-                         html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
-                       }
-                       if(config.testimonial_client_website && testi.config.website != ''){
-                         if(config.identity_linking_website){
-                           html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
-                         }else{
-                           html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
-                         }
-
-                       }
-                       if(config.social_profile){
-                         html_fun += '<div class="tpro-social-profile">';
-                         $.each(testi.config.social_profiles,function(i,social){
-                           html_fun += '<a href="'+social.social_url+'" class="tpro-'+social.social_name+'" target="_blank"><i class="fa fa-'+social.social_name+'"></i></a>';
-                         })
-                         html_fun += '</div>';
-                       }
-
-                       html_fun += '</div>';
-
-                       html_fun += '</div>';
-                       return html_fun;
-                     }
-                     // Resize image
-                     function imgURL(src, image_size, size) {
-                       src = src.replace(/_(pico|icon|thumb|small|compact|medium|large|grande|original|1024x1024|2048x2048|master)+\./g,".");
-                       if (image_size === "default") {
-                         return src;
-                       }else{
-
-                         var src = src.split('upload/');  
-                         return src[0] +'upload/'+size+'/'+src[1];
-                       }
-
-                     }
-                     // Text
-                     function test_des(testi,config){
-                       var des = testi.replace(/[\\]/g, "");
-                       if (config.testimonial_content_type[0] == "content_with_limit") {
-                         des = des.replace(/(<([^>]+)>)/gi, "");
-                         des = smartTrim(des,config.testimonial_characters_limit,config.testimonial_read_more_ellipsis);
-                       }
-                       return des;
-                     }
-                     // Rate
-                     function render_rate(rating,icon){
-                       var html_rate = '';
-                       for(var i = 1; i <= rating; i++){
-                         html_rate += '<i class="'+icon+'" aria-hidden="true"></i>';
-                       }
-                       if(rating < 5){
-                         for(var j = rating+1; j <= 5; j++){
-                           if(icon.indexOf('smile') > -1){
-                             html_rate += '<i class="fa fa-frown-o" aria-hidden="true"></i>';
-                           }else if(icon.indexOf('thumbs') > -1){
-                             html_rate += '<i class="fa fa-thumbs-o-up" aria-hidden="true"></i>';
+                         // Theme nine
+                         function html_theme_nine(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
                            }
-                           else{
-                             html_rate += '<i class="'+icon+'-o" aria-hidden="true"></i>';
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="simesy-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro">';
+                           if(config.testimonial_info_position_two[0] == 'top_left' || config.testimonial_info_position_two[0] == 'top_right'){
+                             html_fun += '<div class="tpro-testimonial-meta-area">';
+                             if(config.testimonial_info_position_two[0] == 'top_left'){
+                               if(config.client_image){
+                                 var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                     image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                                 html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                                 if(config.video_icon && testi.config.video_url != ''){
+                                   html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                   html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                   html_fun += '</a>';
+                                 }else{
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                                 }
+                                 html_fun += '</div>';
+                               }
+                             }
+                             html_fun += '<div class="tpro-testimonial-meta-text">'
+                             if(config.testimonial_client_name && testi.config.name != ''){
+                               html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                             }
+
+                             if(config.testimonial_client_rating){
+                               html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                             }
+                             if(config.client_designation && testi.config.designation != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                               }
+                             }
+                             if(config.testimonial_client_location && testi.config.location != ''){
+                               html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                             }
+                             if(config.testimonial_client_phone && testi.config.phone != ''){
+                               html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                             }
+                             if(config.testimonial_client_email && testi.config.email != ''){
+                               html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                             }
+                             if(config.testimonial_client_date && testi.createdAt != ''){
+                               html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                             }
+                             if(config.testimonial_client_website && testi.config.website != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                               }
+
+                             }
+                             if(config.social_profile){
+                               html_fun += '<div class="tpro-social-profile">';
+                               $.each(testi.config.social_profiles,function(i,social){
+                                 html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                               })
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                             if(config.testimonial_info_position_two[0] == 'top_right'){
+                               if(config.client_image){
+                                 var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                     image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                                 html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                                 if(config.video_icon && testi.config.video_url != ''){
+                                   html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                   html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                   html_fun += '</a>';
+                                 }else{
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                                 }
+                                 html_fun += '</div>';
+                               }
+                             }
+                             html_fun += '</div>';
+                             html_fun += '<div class="tpro-testimonial-content-area">';
+                             if(config.testimonial_title && testi.config.title != ''){
+                               html_fun += '<div class="tpro-testimonial-title">';
+                               html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                               html_fun += '</div>';
+                             }
+
+                             var text_des = testi.config.content;
+                             var check_array = text_des.split(" ");
+                             /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                             if(config.testimonial_text && text_des != ''){
+                               html_fun += '<div class="tpro-client-testimonial">';
+                               html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                               if(config.testimonial_read_more){
+                                 if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                   html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }else{
+                                   html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }
+                               }
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                           }else{
+                             html_fun += '<div class="tpro-testimonial-content-area">';
+                             if(config.testimonial_title && testi.config.title != ''){
+                               html_fun += '<div class="tpro-testimonial-title">';
+                               html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                               html_fun += '</div>';
+                             }
+
+                             var text_des = testi.config.content;
+                             var check_array = text_des.split(" ");
+                             /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                             if(config.testimonial_text && text_des != ''){
+                               html_fun += '<div class="tpro-client-testimonial">';
+                               html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                               if(config.testimonial_read_more){
+                                 if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                   html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }else{
+                                   html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                                 }
+                               }
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                             html_fun += '<div class="tpro-testimonial-meta-area">';
+                             if(config.testimonial_info_position_two[0] == 'bottom_left'){
+                               if(config.client_image){
+                                 var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                     image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                                 html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                                 if(config.video_icon && testi.config.video_url != ''){
+                                   html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                   html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                   html_fun += '</a>';
+                                 }else{
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                                 }
+                                 html_fun += '</div>';
+                               }
+                             }
+                             html_fun += '<div class="tpro-testimonial-meta-text">'
+
+                             if(config.testimonial_client_name && testi.config.name != ''){
+                               html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                             }
+                             if(config.testimonial_client_rating){
+                               html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                             }
+                             if(config.client_designation && testi.config.designation != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                               }
+                             }
+                             if(config.testimonial_client_location && testi.config.location != ''){
+                               html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                             }
+                             if(config.testimonial_client_phone && testi.config.phone != ''){
+                               html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                             }
+                             if(config.testimonial_client_email && testi.config.email != ''){
+                               html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                             }
+                             if(config.testimonial_client_date && testi.createdAt != ''){
+                               html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                             }
+                             if(config.testimonial_client_website && testi.config.website != ''){
+                               if(config.identity_linking_website){
+                                 html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                               }else{
+                                 html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                               }
+
+                             }
+                             if(config.social_profile){
+                               html_fun += '<div class="tpro-social-profile">';
+                               $.each(testi.config.social_profiles,function(i,social){
+                                 html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                               })
+                               html_fun += '</div>';
+                             }
+                             html_fun += '</div>';
+                             if(config.testimonial_info_position_two[0] == 'bottom_right'){
+                               if(config.client_image){
+                                 var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                     image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                                 html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                                 if(config.video_icon && testi.config.video_url != ''){
+                                   html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                                   html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                                   html_fun += '</a>';
+                                 }else{
+                                   html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                                 }
+                                 html_fun += '</div>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+                           html_fun += '</div>';
+                           html_fun += '</div>';
+                           return html_fun;
+                         }
+                         // Theme ten
+                         function html_theme_ten(testi,config,id,index){
+                           var html_fun = '';
+                           if(config.layout[0] == "slider"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           if(config.layout[0] == "grid"){
+                             html_fun += '<div class="sp-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry">';
+                           }
+                           if(config.layout[0] == "masonry"){
+                             html_fun += '<div class="sp-testimonial-pro-item tpro-col-xl-'+config.columns.large_desktop+' tpro-col-lg-'+config.columns.desktop+' tpro-col-md-'+config.columns.laptop+' tpro-col-sm-'+config.columns.tablet+' tpro-col-xs-'+config.columns.mobile+' post-127 spt_testimonial type-spt_testimonial status-publish hentry masonry-brick">';
+                           }
+                           if(config.layout[0] == "list"){
+                             html_fun += '<div class="simesy-testimonial-pro-item">';
+                           }
+                           html_fun += '<div class="simesy-testimonial-pro"><div class="simesy-tpro-top-background"></div>';
+                           if(config.client_image){
+                             var image_sizes_custom_height = config.image_custom_size.height != '' ? config.image_custom_size.height : 120,
+                                 image_sizes_custom_width = config.image_custom_size.width != '' ? config.image_custom_size.width : 120;
+                             html_fun += '<div class="tpro-client-image tpro-image-style-'+config.client_image_style+' tpro-image-position-'+config.client_image_position_two[0]+'">';
+                             if(config.video_icon && testi.config.video_url != ''){
+                               html_fun += '<a href="'+testi.config.video_url+'" class="sp-tpro-video">';
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+                               html_fun += '<i class="fa fa-play-circle-o" aria-hidden="true"></i>';
+                               html_fun += '</a>';
+                             }else{
+                               html_fun += '<img src="'+imgURL(testi.config.image_url, config.image_sizes,'w_'+image_sizes_custom_width+',h_'+ image_sizes_custom_height)+'" class="tpro-grayscale-'+config.image_grayscale+'">';
+
+                             }
+                             html_fun += '</div>';
+                           }
+
+
+                           if(config.testimonial_title && testi.config.title != ''){
+                             html_fun += '<div class="tpro-testimonial-title">';
+                             html_fun += '<'+config.testimonial_title_tag+' class="sp-tpro-testimonial-title">'+testi.config.title+'</'+config.testimonial_title_tag+'>';
+                             html_fun += '</div>';
+                           }
+
+                           if(config.testimonial_client_name && testi.config.name != ''){
+                             html_fun += '<'+config.testimonial_client_name_tag+' class="tpro-client-name">'+testi.config.name+'</'+config.testimonial_client_name_tag+'>';
+                           }
+                           if(config.testimonial_client_rating){
+                             html_fun += '<div class="tpro-client-rating">'+render_rate(testi.config.rating,config.tpro_star_icon[0])+'</div>'
+                           }
+                           if(config.client_designation && testi.config.designation != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-designation-company"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.designation+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-designation-company">'+testi.config.designation+'</div>';
+                             }
+                           }
+                           var text_des = testi.config.content;
+                           var check_array = text_des.split(" ");
+                           /*text_des = text_des.replace(/<[^>]*>?/gm, '');*/
+                           if(config.testimonial_text && text_des != ''){
+                             html_fun += '<div class="tpro-client-testimonial">';
+                             html_fun += '<div class="tpro-testimonial-text">'+test_des(testi.config.content,config)+'</div>';
+                             if(config.testimonial_read_more){
+                               if(config.testimonial_read_more_link_action[0] == 'expand'){
+                                 html_fun += '<a href="#" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }else{
+                                 html_fun += '<a href="#" data-remodal-target="simesy-tpro-testimonial-id-'+id+'-'+index+'" class="tpro-read-more">'+config.testimonial_read_more_text+'</a>';
+                               }
+                             }
+                             html_fun += '</div>';
+                           }
+                           if(config.testimonial_client_location && testi.config.location != ''){
+                             html_fun += '<div class="tpro-client-location">'+testi.config.location+'</div>';
+                           }
+                           if(config.testimonial_client_phone && testi.config.phone != ''){
+                             html_fun += '<div class="tpro-client-phone">'+testi.config.phone+'</div>';
+                           }
+                           if(config.testimonial_client_email && testi.config.email != ''){
+                             html_fun += '<div class="tpro-client-email">'+testi.config.email+'</div>';
+                           }
+                           if(config.testimonial_client_date && testi.createdAt != ''){
+                             html_fun += '<div class="tpro-client-date">'+dateFormat(testi.createdAt,config.testimonial_client_date_format)+'</div>';
+                           }
+                           if(config.testimonial_client_website && testi.config.website != ''){
+                             if(config.identity_linking_website){
+                               html_fun += '<div class="tpro-client-website"><a href="'+testi.config.website+'" target="'+config.website_link_target[0]+'">'+testi.config.website+'</a></div>';
+                             }else{
+                               html_fun += '<div class="tpro-client-website">'+testi.config.website+'</div>';
+                             }
+
+                           }
+                           if(config.social_profile){
+                             html_fun += '<div class="tpro-social-profile">';
+                             $.each(testi.config.social_profiles,function(i,social){
+                               html_fun += '<a href="'+social.social_url+'" class="tpro-'+(social.social_name).toLowerCase()+'" target="_blank"><i class="fa fa-'+(social.social_name).toLowerCase()+'"></i></a>';
+                             })
+                             html_fun += '</div>';
+                           }
+
+                           html_fun += '</div>';
+
+                           html_fun += '</div>';
+                           return html_fun;
+                         }
+                         // Resize image
+                         function imgURL(src, image_size, size) {
+                           src = src.replace(/_(pico|icon|thumb|small|compact|medium|large|grande|original|1024x1024|2048x2048|master)+\./g,".");
+                           if (image_size === "default") {
+                             return src;
+                           }else{
+
+                             var src = src.split('upload/');  
+                             return src[0] +'upload/'+size+'/'+src[1];
                            }
 
                          }
-                       }
-                       return html_rate;
-                     }
-                     //smartTrim
-                     function smartTrim(str, length, appendix) {
-                       var check_array = str.split(" ");
-                       var str_title = str.split(/\s+/).slice(0, length).join(" ");
-                       if (check_array.length >= length) {
-                         str_title += appendix;
-                       }
-                       return str_title;
-                     }
-                     /*
+                         // Text
+                         function test_des(testi,config){
+                           var des = testi.replace(/[\\]/g, "");
+                           if (config.testimonial_content_type[0] == "content_with_limit") {
+                             des = des.replace(/(<([^>]+)>)/gi, "");
+                             des = smartTrim(des,config.testimonial_characters_limit,config.testimonial_read_more_ellipsis);
+                           }
+                           return des;
+                         }
+                         // Rate
+                         function render_rate(rating,icon){
+                           var html_rate = '';
+                           for(var i = 1; i <= rating; i++){
+                             html_rate += '<i class="'+icon+'" aria-hidden="true"></i>';
+                           }
+                           if(rating < 5){
+                             for(var j = rating+1; j <= 5; j++){
+                               if(icon.indexOf('smile') > -1){
+                                 html_rate += '<i class="fa fa-frown-o" aria-hidden="true"></i>';
+                               }else if(icon.indexOf('thumbs') > -1){
+                                 html_rate += '<i class="fa fa-thumbs-o-up" aria-hidden="true"></i>';
+                               }
+                               else{
+                                 html_rate += '<i class="'+icon+'-o" aria-hidden="true"></i>';
+                               }
+
+                             }
+                           }
+                           return html_rate;
+                         }
+                         //smartTrim
+                         function smartTrim(str, length, appendix) {
+                           var check_array = str.split(" ");
+                           var str_title = str.split(/\s+/).slice(0, length).join(" ");
+                           if (check_array.length >= length) {
+                             str_title += appendix;
+                           }
+                           return str_title;
+                         }
+                         /*
  * Date Format 1.2.3
  * (c) 2007-2009 Steven Levithan <stevenlevithan.com>
  * MIT license
@@ -3883,124 +4142,124 @@ autoplay: false,
  * The mask defaults to dateFormat.masks.default.
  */
 
-                     var dateFormat = function() {
-                       var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTt])\1?|[LloSZ]|"[^"]*"|'[^']*'/g,
-                           timezone = /\b(?:[PMCEA][SDP]T|(?:Pacific|Mountain|Central|Eastern|Atlantic) (?:Standard|Daylight|Prevailing) Time|(?:GMT|UTC)(?:[-+]\d{4})?)\b/g,
-                           timezoneClip = /[^-+\dA-Z]/g,
-                           pad = function(val, len) {
-                             val = String(val);
-                             len = len || 2;
-                             while (val.length < len) val = "0" + val;
-                             return val;
+                         var dateFormat = function() {
+                           var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTt])\1?|[LloSZ]|"[^"]*"|'[^']*'/g,
+                               timezone = /\b(?:[PMCEA][SDP]T|(?:Pacific|Mountain|Central|Eastern|Atlantic) (?:Standard|Daylight|Prevailing) Time|(?:GMT|UTC)(?:[-+]\d{4})?)\b/g,
+                               timezoneClip = /[^-+\dA-Z]/g,
+                               pad = function(val, len) {
+                                 val = String(val);
+                                 len = len || 2;
+                                 while (val.length < len) val = "0" + val;
+                                 return val;
+                               };
+
+                           // Regexes and supporting functions are cached through closure
+                           return function(date, mask, utc) {
+                             var dF = dateFormat;
+
+                             // You can't provide utc if you skip other args (use the "UTC:" mask prefix)
+                             if (arguments.length == 1 && Object.prototype.toString.call(date) == "[object String]" && !/\d/.test(date)) {
+                               mask = date;
+                               date = undefined;
+                             }
+
+                             // Passing date through Date applies Date.parse, if necessary
+                             date = date ? new Date(date) : new Date;
+                             if (isNaN(date)) throw SyntaxError("invalid date");
+
+                             mask = String(dF.masks[mask] || mask || dF.masks["default"]);
+
+                             // Allow setting the utc argument via the mask
+                             if (mask.slice(0, 4) == "UTC:") {
+                               mask = mask.slice(4);
+                               utc = true;
+                             }
+
+                             var _ = utc ? "getUTC" : "get",
+                                 d = date[_ + "Date"](),
+                                 D = date[_ + "Day"](),
+                                 m = date[_ + "Month"](),
+                                 y = date[_ + "FullYear"](),
+                                 H = date[_ + "Hours"](),
+                                 M = date[_ + "Minutes"](),
+                                 s = date[_ + "Seconds"](),
+                                 L = date[_ + "Milliseconds"](),
+                                 o = utc ? 0 : date.getTimezoneOffset(),
+                                 flags = {
+                                   d: d,
+                                   dd: pad(d),
+                                   ddd: dF.i18n.dayNames[D],
+                                   dddd: dF.i18n.dayNames[D + 7],
+                                   m: m + 1,
+                                   mm: pad(m + 1),
+                                   mmm: dF.i18n.monthNames[m],
+                                   mmmm: dF.i18n.monthNames[m + 12],
+                                   yy: String(y).slice(2),
+                                   yyyy: y,
+                                   h: H % 12 || 12,
+                                   hh: pad(H % 12 || 12),
+                                   H: H,
+                                   HH: pad(H),
+                                   M: M,
+                                   MM: pad(M),
+                                   s: s,
+                                   ss: pad(s),
+                                   l: pad(L, 3),
+                                   L: pad(L > 99 ? Math.round(L / 10) : L),
+                                   t: H < 12 ? "a" : "p",
+                                   tt: H < 12 ? "am" : "pm",
+                                   T: H < 12 ? "A" : "P",
+                                   TT: H < 12 ? "AM" : "PM",
+                                   Z: utc ? "UTC" : (String(date).match(timezone) || [""]).pop().replace(timezoneClip, ""),
+                                   o: (o > 0 ? "-" : "+") + pad(Math.floor(Math.abs(o) / 60) * 100 + Math.abs(o) % 60, 4),
+                                   S: ["th", "st", "nd", "rd"][d % 10 > 3 ? 0 : (d % 100 - d % 10 != 10) * d % 10]
+                                 };
+
+                             return mask.replace(token, function($0) {
+                               return $0 in flags ? flags[$0] : $0.slice(1, $0.length - 1);
+                             });
                            };
+                         }();
 
-                       // Regexes and supporting functions are cached through closure
-                       return function(date, mask, utc) {
-                         var dF = dateFormat;
+                         // Some common format strings
+                         dateFormat.masks = {
+                           "default": "ddd mmm dd yyyy HH:MM:ss",
+                           shortDate: "m/d/yy",
+                           mediumDate: "mmm d, yyyy",
+                           longDate: "mmmm d, yyyy",
+                           fullDate: "dddd, mmmm d, yyyy",
+                           shortTime: "h:MM TT",
+                           mediumTime: "h:MM:ss TT",
+                           longTime: "h:MM:ss TT Z",
+                           isoDate: "yyyy-mm-dd",
+                           isoTime: "HH:MM:ss",
+                           isoDateTime: "yyyy-mm-dd'T'HH:MM:ss",
+                           isoUtcDateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss'Z'"
+                         };
 
-                         // You can't provide utc if you skip other args (use the "UTC:" mask prefix)
-                         if (arguments.length == 1 && Object.prototype.toString.call(date) == "[object String]" && !/\d/.test(date)) {
-                           mask = date;
-                           date = undefined;
-                         }
+                         // Internationalization strings
+                         dateFormat.i18n = {
+                           dayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+                           monthNames: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+                         };
 
-                         // Passing date through Date applies Date.parse, if necessary
-                         date = date ? new Date(date) : new Date;
-                         if (isNaN(date)) throw SyntaxError("invalid date");
-
-                         mask = String(dF.masks[mask] || mask || dF.masks["default"]);
-
-                         // Allow setting the utc argument via the mask
-                         if (mask.slice(0, 4) == "UTC:") {
-                           mask = mask.slice(4);
-                           utc = true;
-                         }
-
-                         var _ = utc ? "getUTC" : "get",
-                             d = date[_ + "Date"](),
-                             D = date[_ + "Day"](),
-                             m = date[_ + "Month"](),
-                             y = date[_ + "FullYear"](),
-                             H = date[_ + "Hours"](),
-                             M = date[_ + "Minutes"](),
-                             s = date[_ + "Seconds"](),
-                             L = date[_ + "Milliseconds"](),
-                             o = utc ? 0 : date.getTimezoneOffset(),
-                             flags = {
-                               d: d,
-                               dd: pad(d),
-                               ddd: dF.i18n.dayNames[D],
-                               dddd: dF.i18n.dayNames[D + 7],
-                               m: m + 1,
-                               mm: pad(m + 1),
-                               mmm: dF.i18n.monthNames[m],
-                               mmmm: dF.i18n.monthNames[m + 12],
-                               yy: String(y).slice(2),
-                               yyyy: y,
-                               h: H % 12 || 12,
-                               hh: pad(H % 12 || 12),
-                               H: H,
-                               HH: pad(H),
-                               M: M,
-                               MM: pad(M),
-                               s: s,
-                               ss: pad(s),
-                               l: pad(L, 3),
-                               L: pad(L > 99 ? Math.round(L / 10) : L),
-                               t: H < 12 ? "a" : "p",
-                               tt: H < 12 ? "am" : "pm",
-                               T: H < 12 ? "A" : "P",
-                               TT: H < 12 ? "AM" : "PM",
-                               Z: utc ? "UTC" : (String(date).match(timezone) || [""]).pop().replace(timezoneClip, ""),
-                               o: (o > 0 ? "-" : "+") + pad(Math.floor(Math.abs(o) / 60) * 100 + Math.abs(o) % 60, 4),
-                               S: ["th", "st", "nd", "rd"][d % 10 > 3 ? 0 : (d % 100 - d % 10 != 10) * d % 10]
-                             };
-
-                         return mask.replace(token, function($0) {
-                           return $0 in flags ? flags[$0] : $0.slice(1, $0.length - 1);
-                         });
-                       };
-                     }();
-
-                     // Some common format strings
-                     dateFormat.masks = {
-                       "default": "ddd mmm dd yyyy HH:MM:ss",
-                       shortDate: "m/d/yy",
-                       mediumDate: "mmm d, yyyy",
-                       longDate: "mmmm d, yyyy",
-                       fullDate: "dddd, mmmm d, yyyy",
-                       shortTime: "h:MM TT",
-                       mediumTime: "h:MM:ss TT",
-                       longTime: "h:MM:ss TT Z",
-                       isoDate: "yyyy-mm-dd",
-                       isoTime: "HH:MM:ss",
-                       isoDateTime: "yyyy-mm-dd'T'HH:MM:ss",
-                       isoUtcDateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss'Z'"
-                     };
-
-                     // Internationalization strings
-                     dateFormat.i18n = {
-                       dayNames: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-                       monthNames: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-                     };
-
-                     // For convenience...
-                     Date.prototype.format = function(mask, utc) {
-                       return dateFormat(this, mask, utc);
-                     };
-                     if (typeof jQuery === "undefined" || parseFloat(jQuery.fn.jquery) < 1.7) {
-                       loadScript(
-                         "//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js",
-                         function () {
-                           //     jQuery191 = jQuery.noConflict(true);
+                         // For convenience...
+                         Date.prototype.format = function(mask, utc) {
+                           return dateFormat(this, mask, utc);
+                         };
+                         if (typeof jQuery === "undefined" || parseFloat(jQuery.fn.jquery) < 1.7) {
+                           loadScript(
+                             "//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js",
+                             function () {
+                               //     jQuery191 = jQuery.noConflict(true);
+                               initTestimonialSliderLibrary(jQuery);
+                               initTestimonialSlider(jQuery);
+                               initTestimonialForm(jQuery);
+                             }
+                           );
+                         } else {
                            initTestimonialSliderLibrary(jQuery);
                            initTestimonialSlider(jQuery);
                            initTestimonialForm(jQuery);
                          }
-                       );
-                     } else {
-                       initTestimonialSliderLibrary(jQuery);
-                       initTestimonialSlider(jQuery);
-                       initTestimonialForm(jQuery);
-                     }
-                    })();
+                       })();
